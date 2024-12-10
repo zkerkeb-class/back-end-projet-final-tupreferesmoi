@@ -46,6 +46,7 @@ const userSchema = {
   country: String,
   language: String,
   accountType: { type: String, enum: ['free', 'premium'] },
+  role: { type: String, enum: ['user', 'admin'] },
   privacySettings: {
     profileVisibility: { type: String, enum: ['public', 'private'] },
     playlistsVisibility: { type: String, enum: ['public', 'private'] }

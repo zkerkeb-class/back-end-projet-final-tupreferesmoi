@@ -5,6 +5,7 @@ const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const Ffmpeg = require('fluent-ffmpeg');
 const NodeID3 = require('node-id3');
+const { v4: uuidv4 } = require('uuid');
 
 // Chargement des variables d'environnement
 dotenv.config();
@@ -27,7 +28,7 @@ const s3 = new AWS.S3({
 });
 
 // Formats audio acceptés
-const ACCEPTED_FORMATS = ['.mp3', '.wav', '.m4a', '.aac', '.ogg'];
+const ACCEPTED_FORMATS = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac', '.opus', '.webm'];
 const CONVERT_TO_FORMAT = 'm4a';
 
 // Connexion MongoDB
@@ -89,6 +90,20 @@ async function uploadToS3(filePath, key) {
     return s3.upload(uploadParams).promise();
 }
 
+async function createOrUpdateArtist(artistName) {
+    const trimmedName = artistName.trim();
+    if (!trimmedName) return null;
+
+    return await Artist.findOneAndUpdate(
+        { name: trimmedName },
+        { 
+            name: trimmedName,
+            updatedAt: Date.now()
+        },
+        { upsert: true, new: true }
+    );
+}
+
 async function processFile(filePath) {
     try {
         console.log(`Traitement de : ${filePath}`);
@@ -96,21 +111,14 @@ async function processFile(filePath) {
         // Extraction des métadonnées
         const tags = NodeID3.read(filePath);
         
-        // Création ou récupération de l'artiste
-        const artist = await Artist.findOneAndUpdate(
-            { name: tags.artist || 'Artiste Inconnu' },
-            { 
-                name: tags.artist || 'Artiste Inconnu',
-                genres: tags.genre ? [tags.genre] : [],
-                updatedAt: Date.now()
-            },
-            { upsert: true, new: true }
-        );
+        // Gestion des artistes multiples
+        const artistNames = tags.artist ? tags.artist.split(/[,&]/).map(name => name.trim()) : ['Artiste Inconnu'];
+        const artists = await Promise.all(artistNames.map(name => createOrUpdateArtist(name)));
+        const mainArtist = artists[0]; // Le premier artiste est considéré comme l'artiste principal
 
         // Gestion de la date
         let releaseDate = new Date();
         if (tags.year) {
-            // Si l'année est un nombre valide
             const year = parseInt(tags.year);
             if (!isNaN(year) && year > 1900 && year < 2100) {
                 releaseDate = new Date(year, 0);
@@ -121,14 +129,15 @@ async function processFile(filePath) {
         const album = await Album.findOneAndUpdate(
             { 
                 title: tags.album || 'Album Inconnu',
-                artistId: artist._id 
+                artistId: mainArtist._id 
             },
             {
                 title: tags.album || 'Album Inconnu',
-                artistId: artist._id,
+                artistId: mainArtist._id,
                 releaseDate: releaseDate,
                 genres: tags.genre ? [tags.genre] : [],
                 type: 'album',
+                featuring: artists.slice(1).map(artist => artist._id), // Les autres artistes sont considérés comme featuring
                 updatedAt: Date.now()
             },
             { upsert: true, new: true }
@@ -147,8 +156,9 @@ async function processFile(filePath) {
             ? filePath
             : await convertAudio(filePath);
 
-        // Upload sur S3
-        const s3Key = `tracks/${path.basename(convertedPath)}`;
+        // Génération d'un UUID pour la clé S3
+        const fileExtension = path.extname(convertedPath);
+        const s3Key = `tracks/${uuidv4()}${fileExtension}`;
         const s3Response = await uploadToS3(convertedPath, s3Key);
 
         // Création de la piste
@@ -159,6 +169,7 @@ async function processFile(filePath) {
             albumId: album._id,
             trackNumber: parseInt(tags.trackNumber) || 1,
             genres: tags.genre ? [tags.genre] : [],
+            featuring: artists.slice(1).map(artist => artist._id), // Les autres artistes sont considérés comme featuring
             updatedAt: Date.now()
         });
 

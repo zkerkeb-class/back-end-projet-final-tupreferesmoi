@@ -4,27 +4,53 @@ const { formatPaginatedResponse } = require('../utils/pagination');
 // Récupérer tous les artistes avec pagination
 const findAll = async (req, res) => {
     try {
-        const { page, limit } = req.pagination;
+        const { page, limit, skip, sort } = req.pagination;
         const query = {};
-        
-        // Filtre par genre si spécifié
+
+        // Filtre par genre
         if (req.query.genre) {
-            query.genres = req.query.genre;
+            query.genres = { $in: [req.query.genre] };
+        }
+
+        // Filtre par popularité
+        if (req.query.minPopularity || req.query.maxPopularity) {
+            query.popularity = {};
+            if (req.query.minPopularity) query.popularity.$gte = parseInt(req.query.minPopularity);
+            if (req.query.maxPopularity) query.popularity.$lte = parseInt(req.query.maxPopularity);
+        }
+
+        // Filtre par nom (recherche partielle)
+        if (req.query.name) {
+            query.name = { $regex: req.query.name, $options: 'i' };
         }
 
         const [artists, total] = await Promise.all([
             Artist.find(query)
-                .skip((page - 1) * limit)
+                .sort(sort)
+                .skip(skip)
                 .limit(limit),
             Artist.countDocuments(query)
         ]);
 
-        res.status(200).json(formatPaginatedResponse(artists, total, page, limit));
+        const totalPages = Math.ceil(total / limit);
+
+        res.status(200).json({
+            success: true,
+            data: artists,
+            pagination: {
+                currentPage: page,
+                itemsPerPage: limit,
+                totalItems: total,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPreviousPage: page > 1
+            }
+        });
     } catch (error) {
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
             message: "Erreur lors de la récupération des artistes",
-            error: error.message 
+            error: error.message
         });
     }
 };
@@ -145,6 +171,6 @@ module.exports = {
     findOne,
     create,
     update,
-    delete: deleteArtist,
+    deleteArtist,
     search
 }; 

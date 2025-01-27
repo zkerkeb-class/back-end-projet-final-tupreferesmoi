@@ -3,6 +3,7 @@ const router = express.Router();
 const artistController = require('../controllers/artist.controller');
 const paginationMiddleware = require('../middleware/pagination');
 const auth = require('../middleware/auth');
+const cacheMiddleware = require('../middleware/cache.middleware');
 
 /**
  * @swagger
@@ -93,15 +94,13 @@ const auth = require('../middleware/auth');
  *                       type: boolean
  */
 
-// Routes principales
-router.get('/', paginationMiddleware, artistController.findAll);
+// Routes publiques avec cache
+router.get('/search/query', cacheMiddleware('artist-search', 900), artistController.search);
+router.get('/', paginationMiddleware, cacheMiddleware('artists-list', 1800), artistController.findAll);
+router.get('/:id', cacheMiddleware('artist-detail', 3600), artistController.findOne);
+
+// Routes protégées sans cache
 router.post('/', auth, artistController.create);
-
-// Routes de recherche
-router.get('/search/query', artistController.search);
-
-// Routes avec paramètres
-router.get('/:id', artistController.findOne);
 router.put('/:id', auth, artistController.update);
 router.delete('/:id', auth, artistController.deleteArtist);
 

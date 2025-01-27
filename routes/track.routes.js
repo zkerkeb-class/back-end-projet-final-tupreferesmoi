@@ -3,6 +3,7 @@ const { uploadLimiter } = require('../config/rateLimit');
 const trackController = require('../controllers/track.controller');
 const auth = require('../middleware/auth');
 const paginationMiddleware = require('../middleware/pagination');
+const cacheMiddleware = require('../middleware/cache.middleware');
 
 const router = express.Router();
 
@@ -105,17 +106,17 @@ const router = express.Router();
  *                       type: boolean
  */
 
-// Routes principales
-router.get('/', paginationMiddleware, trackController.findAll);
+// Routes publiques avec cache
+router.get('/search/query', cacheMiddleware('track-search', 600), trackController.search);
+router.get('/', paginationMiddleware, cacheMiddleware('tracks-list', 1200), trackController.findAll);
+router.get('/:id', cacheMiddleware('track-detail', 1800), trackController.findOne);
+
+// Routes de mise à jour de popularité (avec cache court)
+router.patch('/:id/popularity', auth, cacheMiddleware('track-popularity', 300), trackController.updatePopularity);
+
+// Routes protégées sans cache
 router.post('/', auth, trackController.create);
-
-// Routes de recherche
-router.get('/search/query', trackController.search);
-
-// Routes avec paramètres
-router.get('/:id', trackController.findOne);
 router.put('/:id', auth, trackController.update);
 router.delete('/:id', auth, trackController.deleteTrack);
-router.patch('/:id/popularity', auth, trackController.updatePopularity);
 
 module.exports = router; 

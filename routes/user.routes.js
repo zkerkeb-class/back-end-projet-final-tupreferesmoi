@@ -1,11 +1,13 @@
 const express = require('express');
-const router = express.Router();
+const { authLimiter } = require('../config/rateLimit');
 const userController = require('../controllers/user.controller');
 const auth = require('../middleware/auth');
 
-// Routes publiques
-router.post('/register', userController.register);
-router.post('/login', userController.login);
+const router = express.Router();
+
+// Routes publiques avec limiteur d'authentification
+router.post('/register', authLimiter, userController.register);
+router.post('/login', authLimiter, userController.login);
 
 // Routes protégées (nécessitent une authentification)
 router.get('/profile', auth, userController.getProfile);

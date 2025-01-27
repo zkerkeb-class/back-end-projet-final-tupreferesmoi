@@ -1,48 +1,65 @@
 const Album = require('../models/album.model');
+const { formatPaginatedResponse } = require('../utils/pagination');
 
 // Récupérer tous les albums avec pagination
-exports.findAll = async (req, res) => {
+const findAll = async (req, res) => {
     try {
-        const { page = 1, limit = 10, artistId } = req.query;
-        const query = artistId ? { artistId } : {};
+        const { page, limit } = req.pagination;
+        const query = {};
+        
+        // Filtre par artiste si spécifié
+        if (req.query.artistId) {
+            query.artistId = req.query.artistId;
+        }
 
-        const albums = await Album.find(query)
-            .populate('artistId', 'name')
-            .populate('featuring', 'name')
-            .limit(limit * 1)
-            .skip((page - 1) * limit)
-            .sort({ releaseDate: -1 });
+        const [albums, total] = await Promise.all([
+            Album.find(query)
+                .populate('artistId', 'name')
+                .populate('featuring', 'name')
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .sort({ releaseDate: -1 }),
+            Album.countDocuments(query)
+        ]);
 
-        const count = await Album.countDocuments(query);
-
-        res.status(200).json({
-            albums,
-            totalPages: Math.ceil(count / limit),
-            currentPage: page
-        });
+        res.status(200).json(formatPaginatedResponse(albums, total, page, limit));
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ 
+            success: false,
+            message: "Erreur lors de la récupération des albums",
+            error: error.message 
+        });
     }
 };
 
 // Récupérer un album par ID
-exports.findOne = async (req, res) => {
+const findOne = async (req, res) => {
     try {
         const album = await Album.findById(req.params.id)
             .populate('artistId', 'name')
             .populate('featuring', 'name');
 
         if (!album) {
-            return res.status(404).json({ message: "Album non trouvé" });
+            return res.status(404).json({ 
+                success: false,
+                message: "Album non trouvé" 
+            });
         }
-        res.status(200).json(album);
+        res.status(200).json({ 
+            success: true,
+            data: album 
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ 
+            success: false,
+            message: "Erreur lors de la récupération de l'album",
+            error: error.message 
+        });
     }
 };
 
 // Créer un nouvel album
-exports.create = async (req, res) => {
+const create = async (req, res) => {
     try {
         const album = new Album(req.body);
         const newAlbum = await album.save();
@@ -51,14 +68,21 @@ exports.create = async (req, res) => {
             .populate('artistId', 'name')
             .populate('featuring', 'name');
 
-        res.status(201).json(populatedAlbum);
+        res.status(201).json({ 
+            success: true,
+            data: populatedAlbum 
+        });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        res.status(400).json({ 
+            success: false,
+            message: "Erreur lors de la création de l'album",
+            error: error.message 
+        });
     }
 };
 
 // Mettre à jour un album
-exports.update = async (req, res) => {
+const update = async (req, res) => {
     try {
         const album = await Album.findByIdAndUpdate(
             req.params.id,
@@ -69,43 +93,49 @@ exports.update = async (req, res) => {
         .populate('featuring', 'name');
 
         if (!album) {
-            return res.status(404).json({ message: "Album non trouvé" });
+            return res.status(404).json({ 
+                success: false,
+                message: "Album non trouvé" 
+            });
         }
-        res.status(200).json(album);
+        res.status(200).json({ 
+            success: true,
+            data: album 
+        });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        res.status(400).json({ 
+            success: false,
+            message: "Erreur lors de la mise à jour de l'album",
+            error: error.message 
+        });
     }
 };
 
 // Supprimer un album
-exports.delete = async (req, res) => {
+const deleteAlbum = async (req, res) => {
     try {
         const album = await Album.findByIdAndDelete(req.params.id);
         if (!album) {
-            return res.status(404).json({ message: "Album non trouvé" });
+            return res.status(404).json({ 
+                success: false,
+                message: "Album non trouvé" 
+            });
         }
-        res.status(200).json({ message: "Album supprimé avec succès" });
+        res.status(200).json({ 
+            success: true,
+            message: "Album supprimé avec succès" 
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-// Récupérer les albums par artiste
-exports.findByArtist = async (req, res) => {
-    try {
-        const albums = await Album.find({ artistId: req.params.artistId })
-            .populate('artistId', 'name')
-            .populate('featuring', 'name')
-            .sort({ releaseDate: -1 });
-
-        res.status(200).json(albums);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ 
+            success: false,
+            message: "Erreur lors de la suppression de l'album",
+            error: error.message 
+        });
     }
 };
 
 // Rechercher des albums
-exports.search = async (req, res) => {
+const search = async (req, res) => {
     try {
         const { query } = req.query;
         const albums = await Album.find({
@@ -118,8 +148,24 @@ exports.search = async (req, res) => {
         .populate('featuring', 'name')
         .limit(10);
 
-        res.status(200).json(albums);
+        res.status(200).json({ 
+            success: true,
+            data: albums 
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ 
+            success: false,
+            message: "Erreur lors de la recherche d'albums",
+            error: error.message 
+        });
     }
+};
+
+module.exports = {
+    findAll,
+    findOne,
+    create,
+    update,
+    delete: deleteAlbum,
+    search
 }; 

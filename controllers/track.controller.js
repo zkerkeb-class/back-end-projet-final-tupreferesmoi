@@ -1,32 +1,39 @@
 const Track = require('../models/track.model');
+const { formatPaginatedResponse } = require('../utils/paginationUtils');
 
 // Récupérer toutes les pistes avec pagination
-exports.findAll = async (req, res) => {
+const findAll = async (req, res) => {
     try {
-        const { page = 1, limit = 20, albumId } = req.query;
-        const query = albumId ? { albumId } : {};
+        const { skip, limit } = req.pagination;
+        const query = req.query.albumId ? { albumId: req.query.albumId } : {};
 
+        // Récupération des tracks avec pagination
         const tracks = await Track.find(query)
+            .skip(skip)
+            .limit(limit)
             .populate('albumId', 'title')
+            .populate('artistId', 'name')
             .populate('featuring', 'name')
-            .limit(limit * 1)
-            .skip((page - 1) * limit)
             .sort({ trackNumber: 1 });
 
-        const count = await Track.countDocuments(query);
+        // Compte total des tracks
+        const totalItems = await Track.countDocuments(query);
 
-        res.status(200).json({
-            tracks,
-            totalPages: Math.ceil(count / limit),
-            currentPage: page
-        });
+        // Formatage de la réponse
+        const response = formatPaginatedResponse(tracks, totalItems, req);
+
+        res.json(response);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ 
+            success: false, 
+            message: 'Erreur lors de la récupération des tracks',
+            error: error.message 
+        });
     }
 };
 
 // Récupérer une piste par ID
-exports.findOne = async (req, res) => {
+const findOne = async (req, res) => {
     try {
         const track = await Track.findById(req.params.id)
             .populate('albumId', 'title artistId')
@@ -42,7 +49,7 @@ exports.findOne = async (req, res) => {
 };
 
 // Créer une nouvelle piste
-exports.create = async (req, res) => {
+const create = async (req, res) => {
     try {
         const track = new Track(req.body);
         const newTrack = await track.save();
@@ -58,7 +65,7 @@ exports.create = async (req, res) => {
 };
 
 // Mettre à jour une piste
-exports.update = async (req, res) => {
+const update = async (req, res) => {
     try {
         const track = await Track.findByIdAndUpdate(
             req.params.id,
@@ -78,7 +85,7 @@ exports.update = async (req, res) => {
 };
 
 // Supprimer une piste
-exports.delete = async (req, res) => {
+const deleteTrack = async (req, res) => {
     try {
         const track = await Track.findByIdAndDelete(req.params.id);
         if (!track) {
@@ -91,7 +98,7 @@ exports.delete = async (req, res) => {
 };
 
 // Récupérer les pistes par album
-exports.findByAlbum = async (req, res) => {
+const findByAlbum = async (req, res) => {
     try {
         const tracks = await Track.find({ albumId: req.params.albumId })
             .populate('albumId', 'title')
@@ -105,7 +112,7 @@ exports.findByAlbum = async (req, res) => {
 };
 
 // Rechercher des pistes
-exports.search = async (req, res) => {
+const search = async (req, res) => {
     try {
         const { query } = req.query;
         const tracks = await Track.find({
@@ -125,7 +132,7 @@ exports.search = async (req, res) => {
 };
 
 // Mettre à jour la popularité d'une piste
-exports.updatePopularity = async (req, res) => {
+const updatePopularity = async (req, res) => {
     try {
         const { popularity } = req.body;
         const track = await Track.findByIdAndUpdate(
@@ -141,4 +148,15 @@ exports.updatePopularity = async (req, res) => {
     } catch (error) {
         res.status(400).json({ message: error.message });
     }
+};
+
+module.exports = {
+    findAll,
+    findOne,
+    create,
+    update,
+    delete: deleteTrack,
+    findByAlbum,
+    search,
+    updatePopularity
 }; 

@@ -1,5 +1,65 @@
 const mongoose = require('mongoose');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Track:
+ *       type: object
+ *       required:
+ *         - title
+ *         - albumId
+ *         - duration
+ *         - fileUrl
+ *         - trackNumber
+ *       properties:
+ *         _id:
+ *           type: string
+ *           description: ID unique de la piste
+ *         title:
+ *           type: string
+ *           description: Titre de la piste
+ *         albumId:
+ *           type: string
+ *           description: ID de l'album associé
+ *         duration:
+ *           type: number
+ *           description: Durée de la piste en secondes
+ *         fileUrl:
+ *           type: string
+ *           description: URL du fichier audio
+ *         lyrics:
+ *           type: string
+ *           description: Paroles de la chanson
+ *         genres:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: Liste des genres musicaux
+ *         trackNumber:
+ *           type: number
+ *           description: Numéro de la piste dans l'album
+ *         popularity:
+ *           type: number
+ *           description: Score de popularité de la piste
+ *         featuring:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: Liste des IDs des artistes en featuring
+ *         previewUrl:
+ *           type: string
+ *           description: URL de l'aperçu audio
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Date de création
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Date de dernière mise à jour
+ */
+
 const trackSchema = new mongoose.Schema({
     title: {
         type: String,

@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 const artistSchema = new mongoose.Schema({
     name: {
         type: String,
-        required: true
+        required: true,
+        unique: true
     },
     bio: {
         type: String
@@ -16,7 +17,9 @@ const artistSchema = new mongoose.Schema({
         default: 0
     },
     image: {
-        type: String
+        thumbnail: String,
+        medium: String,
+        large: String
     },
     createdAt: {
         type: Date,
@@ -26,6 +29,8 @@ const artistSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     }
+}, {
+    timestamps: true
 });
 
 // Middleware pour mettre à jour updatedAt avant chaque sauvegarde

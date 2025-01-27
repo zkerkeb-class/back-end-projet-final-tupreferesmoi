@@ -1,10 +1,12 @@
-import express from 'express';
-import dotenv from 'dotenv';
-import helmet from 'helmet';
-import connectToMongoDB from './db/mongodb.js';
-import userRoutes from './routes/user.routes.js';
-import logger from './config/logger.js';
-import { globalLimiter } from './config/rateLimit.js';
+const express = require('express');
+const dotenv = require('dotenv');
+const helmet = require('helmet');
+const swaggerUi = require('swagger-ui-express');
+const connectToMongoDB = require('./db/mongodb.js');
+const userRoutes = require('./routes/user.routes.js');
+const logger = require('./config/logger.js');
+const { globalLimiter } = require('./config/rateLimit.js');
+const swaggerSpecs = require('./config/swagger.js');
 
 dotenv.config();
 connectToMongoDB();
@@ -13,6 +15,12 @@ const app = express();
 
 // Middleware de sécurité
 app.use(helmet());
+
+// Configuration Swagger
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: "API Spotify Clone - Documentation"
+}));
 
 // Rate Limiting global
 app.use(globalLimiter);

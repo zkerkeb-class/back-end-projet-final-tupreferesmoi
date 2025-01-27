@@ -4,7 +4,8 @@ const path = require('path');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const Ffmpeg = require('fluent-ffmpeg');
-const mm = require('music-metadata');
+const musicMetadata = require('music-metadata');
+const sharp = require('sharp');
 const Track = require('./models/track.model.js');
 const Artist = require('./models/artist.model.js');
 const Album = require('./models/album.model.js');
@@ -52,15 +53,42 @@ function walkSync(dir, filelist = []) {
 async function uploadImageToS3(imageBuffer, format, prefix) {
   if (!imageBuffer) return null;
   
-  const imageKey = `images/${prefix}-${Date.now()}.${format.split('/')[1]}`;
-  await s3.upload({
-    Bucket: process.env.AWS_BUCKET_NAME,
-    Key: imageKey,
-    Body: imageBuffer,
-    ContentType: format
-  }).promise();
-  
-  return `https://${process.env.AWS_BUCKET_NAME}.s3.amazonaws.com/${imageKey}`;
+  try {
+    // Définition des tailles
+    const sizes = {
+      thumbnail: { width: 150, height: 150 },
+      medium: { width: 400, height: 400 },
+      large: { width: 800, height: 800 }
+    };
+
+    const urls = {};
+
+    // Génération et upload des différentes tailles
+    for (const [size, dimensions] of Object.entries(sizes)) {
+      const webpBuffer = await sharp(imageBuffer)
+        .resize(dimensions.width, dimensions.height, {
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .webp({ quality: 80 })
+        .toBuffer();
+      
+      const imageKey = `images/${prefix}-${size}-${Date.now()}.webp`;
+      await s3.upload({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: imageKey,
+        Body: webpBuffer,
+        ContentType: 'image/webp'
+      }).promise();
+      
+      urls[size] = `https://${process.env.AWS_BUCKET_NAME}.s3.amazonaws.com/${imageKey}`;
+    }
+    
+    return urls;
+  } catch (error) {
+    console.error('Erreur lors de la conversion/upload de l\'image:', error);
+    return null;
+  }
 }
 
 async function processAudioFile(filePath) {
@@ -71,7 +99,7 @@ async function processAudioFile(filePath) {
     stats.totalFiles++;
 
     try {
-      const metadata = await mm.parseFile(filePath);
+      const metadata = await musicMetadata.parseFile(filePath);
       const {common, format} = metadata;
 
       const existingTrack = await Track.findOne({title: common.title || originalname});
@@ -166,16 +194,22 @@ async function processAudioFile(filePath) {
       }
 
       // Upload des images vers S3
-      let albumCoverUrl = null;
+      let albumCoverUrls = null;
       
       if (common.picture?.length) {
         const picture = common.picture[0];
         // Mettre à jour l'image pour tous les artistes
         for (const artist of allArtists) {
-          const artistImageUrl = await uploadImageToS3(picture.data, picture.format, `artist-${artist.name}`);
-          await Artist.findByIdAndUpdate(artist._id, { image: artistImageUrl });
+          const artistImageUrls = await uploadImageToS3(picture.data, picture.format, `artist-${artist.name}`);
+          await Artist.findByIdAndUpdate(artist._id, { 
+            image: {
+              thumbnail: artistImageUrls?.thumbnail || null,
+              medium: artistImageUrls?.medium || null,
+              large: artistImageUrls?.large || null
+            }
+          });
         }
-        albumCoverUrl = await uploadImageToS3(picture.data, picture.format, `album-${albumTitle}`);
+        albumCoverUrls = await uploadImageToS3(picture.data, picture.format, `album-${albumTitle}`);
       }
 
       // Créer ou mettre à jour l'album avec tous les artistes
@@ -186,7 +220,11 @@ async function processAudioFile(filePath) {
           artistId: mainArtists[0]?._id,
           releaseDate: isNaN(year) ? new Date(currentYear, 0, 1) : new Date(year, 0, 1),
           genres: common.genre || [],
-          coverImage: albumCoverUrl,
+          coverImage: {
+            thumbnail: albumCoverUrls?.thumbnail || null,
+            medium: albumCoverUrls?.medium || null,
+            large: albumCoverUrls?.large || null
+          },
           type: 'album',
           trackCount: 1,
           featuring: featuredArtists.map(artist => artist._id)

@@ -18,7 +18,9 @@ const albumSchema = new mongoose.Schema({
         type: String
     }],
     coverImage: {
-        type: String
+        thumbnail: String,
+        medium: String,
+        large: String
     },
     trackCount: {
         type: Number,
@@ -27,7 +29,7 @@ const albumSchema = new mongoose.Schema({
     type: {
         type: String,
         enum: ['album', 'single', 'ep'],
-        required: true
+        default: 'album'
     },
     label: String,
     copyright: String,
@@ -35,14 +37,8 @@ const albumSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Artist'
     }],
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now
-    }
+}, {
+    timestamps: true
 });
 
 // Middleware pour mettre à jour updatedAt avant chaque sauvegarde

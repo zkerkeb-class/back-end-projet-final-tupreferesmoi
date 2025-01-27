@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
  *       required:
  *         - title
  *         - albumId
+ *         - artistId
  *         - duration
  *         - fileUrl
  *         - trackNumber
@@ -22,6 +23,9 @@ const mongoose = require('mongoose');
  *         albumId:
  *           type: string
  *           description: ID de l'album associé
+ *         artistId:
+ *           type: string
+ *           description: ID de l'artiste principal
  *         duration:
  *           type: number
  *           description: Durée de la piste en secondes
@@ -68,6 +72,11 @@ const trackSchema = new mongoose.Schema({
     albumId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Album',
+        required: true
+    },
+    artistId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Artist',
         required: true
     },
     duration: {

@@ -16,11 +16,20 @@ const paginationMiddleware = (req, res, next) => {
     // Calcul du skip (nombre d'éléments à sauter)
     const skip = (page - 1) * limit;
 
-    // Ajout des informations de pagination à la requête
+    // Gestion du tri
+    let sort = {};
+    if (req.query.sortBy) {
+        const sortField = req.query.sortBy;
+        const sortOrder = req.query.order === 'desc' ? -1 : 1;
+        sort[sortField] = sortOrder;
+    }
+
+    // Ajout des informations de pagination et tri à la requête
     req.pagination = {
         page,
         limit,
-        skip
+        skip,
+        sort
     };
 
     next();

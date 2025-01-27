@@ -15,10 +15,12 @@ const swaggerSpecs = require('./config/swagger.js');
 require('./models/album.model');
 require('./models/artist.model');
 require('./models/track.model');
+require('./models/playlist.model');
 
 // Import des routes
 const albumRoutes = require('./routes/album.routes');
 const artistRoutes = require('./routes/artist.routes');
+const playlistRoutes = require('./routes/playlist.routes');
 
 dotenv.config();
 connectToMongoDB();
@@ -54,6 +56,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/tracks', trackRoutes);
 app.use('/api/albums', albumRoutes);
 app.use('/api/artists', artistRoutes);
+app.use('/api/playlists', playlistRoutes);
 
 // Gestion des erreurs globale
 app.use((err, req, res, next) => {

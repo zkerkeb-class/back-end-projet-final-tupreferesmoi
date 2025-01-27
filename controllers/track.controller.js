@@ -1,33 +1,66 @@
 const Track = require('../models/track.model');
-const { formatPaginatedResponse } = require('../utils/paginationUtils');
+const { formatPaginatedResponse } = require('../utils/pagination');
 
 // Récupérer toutes les pistes avec pagination
 const findAll = async (req, res) => {
     try {
-        const { skip, limit } = req.pagination;
-        const query = req.query.albumId ? { albumId: req.query.albumId } : {};
+        const { page, limit, skip, sort } = req.pagination;
+        const query = {};
 
-        // Récupération des tracks avec pagination
-        const tracks = await Track.find(query)
-            .skip(skip)
-            .limit(limit)
-            .populate('albumId', 'title')
-            .populate('artistId', 'name')
-            .populate('featuring', 'name')
-            .sort({ trackNumber: 1 });
+        // Filtre par albumId si spécifié
+        if (req.query.albumId) {
+            query.albumId = req.query.albumId;
+        }
 
-        // Compte total des tracks
-        const totalItems = await Track.countDocuments(query);
+        // Filtre par durée
+        if (req.query.minDuration || req.query.maxDuration) {
+            query.duration = {};
+            if (req.query.minDuration) query.duration.$gte = parseInt(req.query.minDuration);
+            if (req.query.maxDuration) query.duration.$lte = parseInt(req.query.maxDuration);
+        }
 
-        // Formatage de la réponse
-        const response = formatPaginatedResponse(tracks, totalItems, req);
+        // Filtre par genre
+        if (req.query.genre) {
+            query.genres = { $in: [req.query.genre] };
+        }
 
-        res.json(response);
+        // Filtre par popularité
+        if (req.query.minPopularity || req.query.maxPopularity) {
+            query.popularity = {};
+            if (req.query.minPopularity) query.popularity.$gte = parseInt(req.query.minPopularity);
+            if (req.query.maxPopularity) query.popularity.$lte = parseInt(req.query.maxPopularity);
+        }
+
+        const [tracks, total] = await Promise.all([
+            Track.find(query)
+                .sort(sort)
+                .skip(skip)
+                .limit(limit)
+                .populate('albumId', 'title artistId')
+                .populate('artistId', 'name')
+                .populate('featuring', 'name'),
+            Track.countDocuments(query)
+        ]);
+
+        const totalPages = Math.ceil(total / limit);
+
+        res.status(200).json({
+            success: true,
+            data: tracks,
+            pagination: {
+                currentPage: page,
+                itemsPerPage: limit,
+                totalItems: total,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPreviousPage: page > 1
+            }
+        });
     } catch (error) {
-        res.status(500).json({ 
-            success: false, 
-            message: 'Erreur lors de la récupération des tracks',
-            error: error.message 
+        res.status(500).json({
+            success: false,
+            message: "Erreur lors de la récupération des pistes",
+            error: error.message
         });
     }
 };
@@ -40,11 +73,21 @@ const findOne = async (req, res) => {
             .populate('featuring', 'name');
 
         if (!track) {
-            return res.status(404).json({ message: "Piste non trouvée" });
+            return res.status(404).json({ 
+                success: false,
+                message: "Piste non trouvée" 
+            });
         }
-        res.status(200).json(track);
+        res.status(200).json({ 
+            success: true,
+            data: track 
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ 
+            success: false,
+            message: "Erreur lors de la récupération de la piste",
+            error: error.message 
+        });
     }
 };
 
@@ -58,9 +101,16 @@ const create = async (req, res) => {
             .populate('albumId', 'title')
             .populate('featuring', 'name');
 
-        res.status(201).json(populatedTrack);
+        res.status(201).json({ 
+            success: true,
+            data: populatedTrack 
+        });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        res.status(400).json({ 
+            success: false,
+            message: "Erreur lors de la création de la piste",
+            error: error.message 
+        });
     }
 };
 
@@ -76,11 +126,21 @@ const update = async (req, res) => {
         .populate('featuring', 'name');
 
         if (!track) {
-            return res.status(404).json({ message: "Piste non trouvée" });
+            return res.status(404).json({ 
+                success: false,
+                message: "Piste non trouvée" 
+            });
         }
-        res.status(200).json(track);
+        res.status(200).json({ 
+            success: true,
+            data: track 
+        });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        res.status(400).json({ 
+            success: false,
+            message: "Erreur lors de la mise à jour de la piste",
+            error: error.message 
+        });
     }
 };
 
@@ -89,25 +149,21 @@ const deleteTrack = async (req, res) => {
     try {
         const track = await Track.findByIdAndDelete(req.params.id);
         if (!track) {
-            return res.status(404).json({ message: "Piste non trouvée" });
+            return res.status(404).json({ 
+                success: false,
+                message: "Piste non trouvée" 
+            });
         }
-        res.status(200).json({ message: "Piste supprimée avec succès" });
+        res.status(200).json({ 
+            success: true,
+            message: "Piste supprimée avec succès" 
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-// Récupérer les pistes par album
-const findByAlbum = async (req, res) => {
-    try {
-        const tracks = await Track.find({ albumId: req.params.albumId })
-            .populate('albumId', 'title')
-            .populate('featuring', 'name')
-            .sort({ trackNumber: 1 });
-
-        res.status(200).json(tracks);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ 
+            success: false,
+            message: "Erreur lors de la suppression de la piste",
+            error: error.message 
+        });
     }
 };
 
@@ -125,9 +181,16 @@ const search = async (req, res) => {
         .populate('featuring', 'name')
         .limit(10);
 
-        res.status(200).json(tracks);
+        res.status(200).json({ 
+            success: true,
+            data: tracks 
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ 
+            success: false,
+            message: "Erreur lors de la recherche de pistes",
+            error: error.message 
+        });
     }
 };
 
@@ -142,11 +205,21 @@ const updatePopularity = async (req, res) => {
         );
 
         if (!track) {
-            return res.status(404).json({ message: "Piste non trouvée" });
+            return res.status(404).json({ 
+                success: false,
+                message: "Piste non trouvée" 
+            });
         }
-        res.status(200).json(track);
+        res.status(200).json({ 
+            success: true,
+            data: track 
+        });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        res.status(400).json({ 
+            success: false,
+            message: "Erreur lors de la mise à jour de la popularité",
+            error: error.message 
+        });
     }
 };
 
@@ -155,8 +228,7 @@ module.exports = {
     findOne,
     create,
     update,
-    delete: deleteTrack,
-    findByAlbum,
+    deleteTrack,
     search,
     updatePopularity
 }; 

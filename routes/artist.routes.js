@@ -11,7 +11,7 @@ const auth = require('../middleware/auth');
  *     tags:
  *       - Artists
  *     summary: Liste les artistes
- *     description: Retourne une liste paginée des artistes
+ *     description: Retourne une liste paginée des artistes avec options de tri et de filtrage
  *     parameters:
  *       - in: query
  *         name: page
@@ -27,10 +27,41 @@ const auth = require('../middleware/auth');
  *           maximum: 50
  *         description: Nombre d'éléments par page (défaut - 10, max - 50)
  *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [name, popularity]
+ *         description: Champ pour le tri
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *         description: Ordre du tri (asc ou desc)
+ *       - in: query
  *         name: genre
  *         schema:
  *           type: string
  *         description: Genre musical pour filtrer les artistes
+ *       - in: query
+ *         name: name
+ *         schema:
+ *           type: string
+ *         description: Recherche partielle sur le nom de l'artiste
+ *       - in: query
+ *         name: minPopularity
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *           maximum: 100
+ *         description: Score de popularité minimum
+ *       - in: query
+ *         name: maxPopularity
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *           maximum: 100
+ *         description: Score de popularité maximum
  *     responses:
  *       200:
  *         description: Liste paginée des artistes
@@ -72,6 +103,6 @@ router.get('/search/query', artistController.search);
 // Routes avec paramètres
 router.get('/:id', artistController.findOne);
 router.put('/:id', auth, artistController.update);
-router.delete('/:id', auth, artistController.delete);
+router.delete('/:id', auth, artistController.deleteArtist);
 
 module.exports = router; 

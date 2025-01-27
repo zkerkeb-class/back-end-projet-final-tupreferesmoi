@@ -20,7 +20,8 @@ module.exports = async (req, res, next) => {
         }
 
         // Ajouter les informations de l'utilisateur à la requête
-        req.user = decoded;
+        req.user = user;
+        req.token = token;
         next();
     } catch (error) {
         if (error.name === 'JsonWebTokenError') {

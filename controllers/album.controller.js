@@ -4,30 +4,73 @@ const { formatPaginatedResponse } = require('../utils/pagination');
 // Récupérer tous les albums avec pagination
 const findAll = async (req, res) => {
     try {
-        const { page, limit } = req.pagination;
+        const { page, limit, skip, sort } = req.pagination;
         const query = {};
-        
-        // Filtre par artiste si spécifié
+
+        // Filtre par artistId
         if (req.query.artistId) {
             query.artistId = req.query.artistId;
         }
 
+        // Filtre par type (album, single, ep)
+        if (req.query.type) {
+            query.type = req.query.type;
+        }
+
+        // Filtre par genre
+        if (req.query.genre) {
+            query.genres = { $in: [req.query.genre] };
+        }
+
+        // Filtre par année de sortie
+        if (req.query.year) {
+            const year = parseInt(req.query.year);
+            query.releaseDate = {
+                $gte: new Date(year, 0, 1),
+                $lt: new Date(year + 1, 0, 1)
+            };
+        }
+
+        // Filtre par plage d'années
+        if (req.query.fromYear || req.query.toYear) {
+            query.releaseDate = {};
+            if (req.query.fromYear) {
+                query.releaseDate.$gte = new Date(parseInt(req.query.fromYear), 0, 1);
+            }
+            if (req.query.toYear) {
+                query.releaseDate.$lt = new Date(parseInt(req.query.toYear) + 1, 0, 1);
+            }
+        }
+
         const [albums, total] = await Promise.all([
             Album.find(query)
-                .populate('artistId', 'name')
-                .populate('featuring', 'name')
-                .skip((page - 1) * limit)
+                .sort(sort)
+                .skip(skip)
                 .limit(limit)
-                .sort({ releaseDate: -1 }),
+                .populate('artistId', 'name')
+                .populate('featuring', 'name'),
             Album.countDocuments(query)
         ]);
 
-        res.status(200).json(formatPaginatedResponse(albums, total, page, limit));
+        const totalPages = Math.ceil(total / limit);
+
+        res.status(200).json({
+            success: true,
+            data: albums,
+            pagination: {
+                currentPage: page,
+                itemsPerPage: limit,
+                totalItems: total,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPreviousPage: page > 1
+            }
+        });
     } catch (error) {
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
             message: "Erreur lors de la récupération des albums",
-            error: error.message 
+            error: error.message
         });
     }
 };
@@ -166,6 +209,6 @@ module.exports = {
     findOne,
     create,
     update,
-    delete: deleteAlbum,
+    deleteAlbum,
     search
 }; 

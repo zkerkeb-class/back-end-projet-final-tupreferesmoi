@@ -12,8 +12,8 @@ const router = express.Router();
  *   get:
  *     tags:
  *       - Tracks
- *     summary: Liste les pistes audio
- *     description: Retourne une liste paginée des pistes audio
+ *     summary: Liste les pistes
+ *     description: Retourne une liste paginée des pistes avec options de tri et de filtrage
  *     parameters:
  *       - in: query
  *         name: page
@@ -29,10 +29,51 @@ const router = express.Router();
  *           maximum: 50
  *         description: Nombre d'éléments par page (défaut - 10, max - 50)
  *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [title, duration, popularity, trackNumber]
+ *         description: Champ pour le tri
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *         description: Ordre du tri (asc ou desc)
+ *       - in: query
  *         name: albumId
  *         schema:
  *           type: string
  *         description: ID de l'album pour filtrer les pistes
+ *       - in: query
+ *         name: genre
+ *         schema:
+ *           type: string
+ *         description: Genre musical pour filtrer les pistes
+ *       - in: query
+ *         name: minDuration
+ *         schema:
+ *           type: integer
+ *         description: Durée minimale en secondes
+ *       - in: query
+ *         name: maxDuration
+ *         schema:
+ *           type: integer
+ *         description: Durée maximale en secondes
+ *       - in: query
+ *         name: minPopularity
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *           maximum: 100
+ *         description: Score de popularité minimum
+ *       - in: query
+ *         name: maxPopularity
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *           maximum: 100
+ *         description: Score de popularité maximum
  *     responses:
  *       200:
  *         description: Liste paginée des pistes
@@ -41,6 +82,8 @@ const router = express.Router();
  *             schema:
  *               type: object
  *               properties:
+ *                 success:
+ *                   type: boolean
  *                 data:
  *                   type: array
  *                   items:
@@ -61,14 +104,18 @@ const router = express.Router();
  *                     hasPreviousPage:
  *                       type: boolean
  */
+
+// Routes principales
 router.get('/', paginationMiddleware, trackController.findAll);
-router.post('/', auth, uploadLimiter, trackController.create);
+router.post('/', auth, trackController.create);
+
+// Routes de recherche
+router.get('/search/query', trackController.search);
+
+// Routes avec paramètres
 router.get('/:id', trackController.findOne);
 router.put('/:id', auth, trackController.update);
-router.delete('/:id', auth, trackController.delete);
-
-// Routes additionnelles
-router.get('/search/query', trackController.search);
+router.delete('/:id', auth, trackController.deleteTrack);
 router.patch('/:id/popularity', auth, trackController.updatePopularity);
 
 module.exports = router; 

@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import connectToMongoDB from './db/mongodb.js';
 import userRoutes from './routes/user.routes.js';
 import logger from './config/logger.js';
+import { globalLimiter } from './config/rateLimit.js';
 
 dotenv.config();
 connectToMongoDB();
@@ -12,6 +13,9 @@ const app = express();
 
 // Middleware de sécurité
 app.use(helmet());
+
+// Rate Limiting global
+app.use(globalLimiter);
 
 // Middleware pour parser le JSON
 app.use(express.json());

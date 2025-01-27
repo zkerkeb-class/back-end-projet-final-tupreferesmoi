@@ -27,6 +27,7 @@
         "music-metadata": "^7.13.4",
         "node-cron": "^3.0.3",
         "node-id3": "^0.2.6",
+        "redis": "^4.7.0",
         "sharp": "^0.33.5",
         "swagger-jsdoc": "^6.2.8",
         "swagger-ui-express": "^5.0.1",

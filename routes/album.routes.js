@@ -3,6 +3,7 @@ const router = express.Router();
 const albumController = require('../controllers/album.controller');
 const paginationMiddleware = require('../middleware/pagination');
 const auth = require('../middleware/auth');
+const cacheMiddleware = require('../middleware/cache.middleware');
 
 /**
  * @swagger
@@ -100,15 +101,13 @@ const auth = require('../middleware/auth');
  *                       type: boolean
  */
 
-// Routes principales
-router.get('/', paginationMiddleware, albumController.findAll);
+// Routes publiques avec cache
+router.get('/search/query', cacheMiddleware('album-search', 900), albumController.search);
+router.get('/', paginationMiddleware, cacheMiddleware('albums-list', 1800), albumController.findAll);
+router.get('/:id', cacheMiddleware('album-detail', 3600), albumController.findOne);
+
+// Routes protégées sans cache
 router.post('/', auth, albumController.create);
-
-// Routes de recherche
-router.get('/search/query', albumController.search);
-
-// Routes avec paramètres
-router.get('/:id', albumController.findOne);
 router.put('/:id', auth, albumController.update);
 router.delete('/:id', auth, albumController.deleteAlbum);
 

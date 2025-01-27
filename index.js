@@ -1,72 +1,19 @@
-const express = require('express');
+require('dotenv').config();
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-const cors = require('cors');
-const helmet = require('helmet');
-const swaggerUi = require('swagger-ui-express');
-const connectToMongoDB = require('./db/mongodb.js');
-const userRoutes = require('./routes/user.routes.js');
-const trackRoutes = require('./routes/track.routes.js');
-const logger = require('./config/logger.js');
-const { globalLimiter } = require('./config/rateLimit.js');
-const swaggerSpecs = require('./config/swagger.js');
+const app = require('./app');
+const logger = require('./config/logger');
 
-// Import des modèles
-require('./models/album.model');
-require('./models/artist.model');
-require('./models/track.model');
-require('./models/playlist.model');
+const PORT = process.env.PORT || 3000;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/spotify';
 
-// Import des routes
-const albumRoutes = require('./routes/album.routes');
-const artistRoutes = require('./routes/artist.routes');
-const playlistRoutes = require('./routes/playlist.routes');
-
-dotenv.config();
-connectToMongoDB();
-
-const app = express();
-
-// Middleware de sécurité
-app.use(helmet());
-
-// Configuration Swagger
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
-    customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: "API Spotify Clone - Documentation"
-}));
-
-// Rate Limiting global
-app.use(globalLimiter);
-
-// Middleware pour parser le JSON
-app.use(express.json());
-
-// Logger pour les requêtes HTTP
-app.use((req, res, next) => {
-    logger.info(`${req.method} ${req.url}`, {
-        ip: req.ip,
-        userAgent: req.get('user-agent')
+mongoose.connect(MONGODB_URI)
+    .then(() => {
+        logger.info('Connecté à MongoDB');
+        app.listen(PORT, () => {
+            logger.info(`Serveur démarré sur le port ${PORT}`);
+        });
+    })
+    .catch((err) => {
+        logger.error('Erreur de connexion à MongoDB:', err);
+        process.exit(1);
     });
-    next();
-});
-
-// Routes
-app.use('/api/users', userRoutes);
-app.use('/api/tracks', trackRoutes);
-app.use('/api/albums', albumRoutes);
-app.use('/api/artists', artistRoutes);
-app.use('/api/playlists', playlistRoutes);
-
-// Gestion des erreurs globale
-app.use((err, req, res, next) => {
-    logger.error('Erreur non gérée:', err);
-    res.status(500).json({ 
-        success: false, 
-        message: 'Une erreur interne est survenue' 
-    });
-});
-
-app.listen(3000, () => {
-    logger.info('Serveur démarré sur http://localhost:3000');
-});

@@ -4,7 +4,7 @@ const app = require('./app');
 const logger = require('./config/logger');
 
 const PORT = process.env.PORT || 3000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/spotify';
+const MONGODB_URI = process.env.MONGO_URL || 'mongodb://localhost:27017/spotify';
 
 mongoose.connect(MONGODB_URI)
     .then(() => {

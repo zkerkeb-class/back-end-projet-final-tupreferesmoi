@@ -3,15 +3,34 @@ const { formatPaginatedResponse } = require('../utils/pagination');
 const AWS = require('aws-sdk');
 
 // Configurer AWS S3
-const s3 = new AWS.S3();
-const BUCKET_NAME = process.env.AWS_BUCKET_NAME;
-const REGION = process.env.AWS_REGION;
+const s3 = new AWS.S3({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION,
+    signatureVersion: 'v4'
+});
 
-const getSignedUrl = async (key) => {
-    if (!key) return null;
+const DEFAULT_IMAGE = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMyQTJBMkEiLz48cGF0aCBkPSJNOTAgODBIMTEwQzExNS41MjMgODAgMTIwIDg0LjQ3NzIgMTIwIDkwVjExMEMxMjAgMTE1LjUyMyAxMTUuNTIzIDEyMCAxMTAgMTIwSDkwQzg0LjQ3NzIgMTIwIDgwIDExNS41MjMgODAgMTEwVjkwQzgwIDg0LjQ3NzIgODQuNDc3MiA4MCA5MCA4MFoiIGZpbGw9IiM0MDQwNDAiLz48cGF0aCBkPSJNMTAwIDg1QzEwMi43NjEgODUgMTA1IDg3LjIzODYgMTA1IDkwQzEwNSA5Mi43NjE0IDEwMi43NjEgOTUgMTAwIDk1Qzk3LjIzODYgOTUgOTUgOTIuNzYxNCA5NSA5MEM5NSA4Ny4yMzg2IDk3LjIzODYgODUgMTAwIDg1WiIgZmlsbD0iIzU5NTk1OSIvPjwvc3ZnPg==";
+
+const getSignedUrl = async (imageUrl) => {
+    if (!imageUrl) return null;
+    
     try {
-        const url = `https://${BUCKET_NAME}.s3.${REGION}.amazonaws.com/${key}`;
-        return url;
+        // Extraire la clé de l'URL complète
+        const urlParts = imageUrl.split('.amazonaws.com/');
+        if (urlParts.length !== 2) return null;
+        
+        const key = urlParts[1];
+        console.log('Génération URL signée pour la clé:', key);
+
+        // Générer une URL signée valide pendant 1 heure
+        const signedUrl = await s3.getSignedUrlPromise('getObject', {
+            Bucket: process.env.AWS_BUCKET_NAME,
+            Key: key,
+            Expires: 3600
+        });
+        
+        return signedUrl;
     } catch (error) {
         console.error('Erreur lors de la génération de l\'URL signée:', error);
         return null;
@@ -229,19 +248,46 @@ const getRecent = async (req, res) => {
             .populate('artistId', 'name');
 
         const albumsWithUrls = await Promise.all(recentAlbums.map(async (album) => {
-            const coverUrl = await getSignedUrl(album.coverUrl) || '/assets/placeholder.webp';
-            return {
-                id: album._id,
-                title: album.title,
-                artist: album.artistId.name,
-                coverUrl: coverUrl,
-                year: new Date(album.releaseDate).getFullYear()
-            };
+            try {
+                let imageUrl = DEFAULT_IMAGE;
+                
+                // Si l'album a des images configurées, essayer de générer une URL signée
+                if (album.coverImage) {
+                    const selectedImage = album.coverImage.medium || album.coverImage.large || album.coverImage.thumbnail;
+                    if (selectedImage) {
+                        const signedUrl = await getSignedUrl(selectedImage);
+                        if (signedUrl) {
+                            imageUrl = signedUrl;
+                        }
+                    }
+                }
+                
+                return {
+                    id: album._id,
+                    title: album.title || 'Album Inconnu',
+                    artist: album.artistId?.name || 'Artiste inconnu',
+                    coverUrl: imageUrl,
+                    year: album.releaseDate ? new Date(album.releaseDate).getFullYear() : null
+                };
+            } catch (error) {
+                console.error('Erreur lors du traitement de l\'album:', album.title, error);
+                return {
+                    id: album._id,
+                    title: album.title || 'Album Inconnu',
+                    artist: album.artistId?.name || 'Artiste inconnu',
+                    coverUrl: DEFAULT_IMAGE,
+                    year: album.releaseDate ? new Date(album.releaseDate).getFullYear() : null
+                };
+            }
         }));
 
         res.json(albumsWithUrls);
     } catch (error) {
-        res.status(500).json({ message: "Erreur lors de la récupération des albums récents" });
+        console.error('Erreur dans getRecent:', error);
+        res.status(500).json({ 
+            message: "Erreur lors de la récupération des albums récents",
+            error: error.message 
+        });
     }
 };
 

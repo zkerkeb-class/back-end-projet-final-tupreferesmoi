@@ -54,11 +54,11 @@ async function uploadImageToS3(imageBuffer, format, prefix) {
   if (!imageBuffer) return null;
   
   try {
-    // Définition des tailles
+    // Définition des tailles avec une meilleure qualité
     const sizes = {
-      thumbnail: { width: 150, height: 150 },
-      medium: { width: 400, height: 400 },
-      large: { width: 800, height: 800 }
+      thumbnail: { width: 300, height: 300 },  // Augmenté de 150 à 300
+      medium: { width: 600, height: 600 },     // Augmenté de 400 à 600
+      large: { width: 1200, height: 1200 }     // Augmenté de 800 à 1200
     };
 
     const urls = {};
@@ -67,10 +67,15 @@ async function uploadImageToS3(imageBuffer, format, prefix) {
     for (const [size, dimensions] of Object.entries(sizes)) {
       const webpBuffer = await sharp(imageBuffer)
         .resize(dimensions.width, dimensions.height, {
-          fit: 'inside',
+          fit: 'cover',
+          position: 'centre',
           withoutEnlargement: true
         })
-        .webp({ quality: 80 })
+        .webp({ 
+          quality: 95,  // Augmenté de 80 à 95
+          effort: 6,    // Meilleur effort de compression
+          smartSubsample: true  // Meilleure qualité pour les zones colorées
+        })
         .toBuffer();
       
       const imageKey = `images/${prefix}-${size}-${Date.now()}.webp`;

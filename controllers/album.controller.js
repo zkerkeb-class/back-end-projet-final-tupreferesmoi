@@ -1,5 +1,22 @@
 const Album = require('../models/album.model');
 const { formatPaginatedResponse } = require('../utils/pagination');
+const AWS = require('aws-sdk');
+
+// Configurer AWS S3
+const s3 = new AWS.S3();
+const BUCKET_NAME = process.env.AWS_BUCKET_NAME;
+const REGION = process.env.AWS_REGION;
+
+const getSignedUrl = async (key) => {
+    if (!key) return null;
+    try {
+        const url = `https://${BUCKET_NAME}.s3.${REGION}.amazonaws.com/${key}`;
+        return url;
+    } catch (error) {
+        console.error('Erreur lors de la génération de l\'URL signée:', error);
+        return null;
+    }
+};
 
 // Récupérer tous les albums avec pagination
 const findAll = async (req, res) => {
@@ -204,11 +221,36 @@ const search = async (req, res) => {
     }
 };
 
+const getRecent = async (req, res) => {
+    try {
+        const recentAlbums = await Album.find()
+            .sort({ releaseDate: -1 })
+            .limit(10)
+            .populate('artistId', 'name');
+
+        const albumsWithUrls = await Promise.all(recentAlbums.map(async (album) => {
+            const coverUrl = await getSignedUrl(album.coverUrl) || '/assets/placeholder.webp';
+            return {
+                id: album._id,
+                title: album.title,
+                artist: album.artistId.name,
+                coverUrl: coverUrl,
+                year: new Date(album.releaseDate).getFullYear()
+            };
+        }));
+
+        res.json(albumsWithUrls);
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la récupération des albums récents" });
+    }
+};
+
 module.exports = {
     findAll,
     findOne,
     create,
     update,
     deleteAlbum,
-    search
+    search,
+    getRecent
 }; 

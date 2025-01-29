@@ -107,6 +107,7 @@ const router = express.Router();
  */
 
 // Routes publiques avec cache
+router.get('/recent', cacheMiddleware('tracks-recent', 600), trackController.getRecent);
 router.get('/search/query', cacheMiddleware('track-search', 600), trackController.search);
 router.get('/', paginationMiddleware, cacheMiddleware('tracks-list', 1200), trackController.findAll);
 router.get('/:id', cacheMiddleware('track-detail', 1800), trackController.findOne);

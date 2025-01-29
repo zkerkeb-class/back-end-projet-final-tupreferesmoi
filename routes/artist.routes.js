@@ -95,9 +95,11 @@ const cacheMiddleware = require('../middleware/cache.middleware');
  */
 
 // Routes publiques avec cache
-router.get('/search/query', cacheMiddleware('artist-search', 900), artistController.search);
-router.get('/', paginationMiddleware, cacheMiddleware('artists-list', 1800), artistController.findAll);
-router.get('/:id', cacheMiddleware('artist-detail', 3600), artistController.findOne);
+router.get('/popular', cacheMiddleware('artists-popular', 600), artistController.getPopular);
+router.get('/search/query', cacheMiddleware('artist-search', 600), artistController.search);
+router.get('/', paginationMiddleware, cacheMiddleware('artists-list', 1200), artistController.findAll);
+router.get('/:id', cacheMiddleware('artist-detail', 1800), artistController.findOne);
+router.get('/:id/top-tracks', cacheMiddleware('artist-top-tracks', 1800), artistController.getTopTracks);
 
 // Routes protégées sans cache
 router.post('/', auth, artistController.create);

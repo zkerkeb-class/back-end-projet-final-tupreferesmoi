@@ -223,6 +223,26 @@ const updatePopularity = async (req, res) => {
     }
 };
 
+const getRecent = async (req, res) => {
+    try {
+        const recentTracks = await Track.find()
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .populate('artistId', 'name')
+            .populate('albumId', 'coverUrl');
+
+        res.json(recentTracks.map(track => ({
+            id: track._id,
+            title: track.title,
+            artist: track.artistId.name,
+            coverUrl: track.albumId.coverUrl,
+            duration: track.duration
+        })));
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la récupération des morceaux récents" });
+    }
+};
+
 module.exports = {
     findAll,
     findOne,
@@ -230,5 +250,6 @@ module.exports = {
     update,
     deleteTrack,
     search,
-    updatePopularity
+    updatePopularity,
+    getRecent
 }; 

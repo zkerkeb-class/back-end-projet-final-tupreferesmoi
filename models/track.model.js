@@ -83,26 +83,32 @@ const trackSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    fileUrl: {
+    audioUrl: {
         type: String,
         required: true
-    },
-    lyrics: String,
-    genres: [{
-        type: String
-    }],
-    trackNumber: {
-        type: Number,
-        required: true
-    },
-    popularity: {
-        type: Number,
-        default: 0
     },
     featuring: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Artist'
     }],
+    genres: [{
+        type: String
+    }],
+    popularity: {
+        type: Number,
+        default: 0
+    },
+    explicit: {
+        type: Boolean,
+        default: false
+    },
+    lyrics: {
+        type: String
+    },
+    trackNumber: {
+        type: Number,
+        required: true
+    },
     previewUrl: String,
     createdAt: {
         type: Date,

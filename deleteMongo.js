@@ -81,4 +81,3 @@ async function deleteAllData() {
     }
 }
 
-deleteAllData();

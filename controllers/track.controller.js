@@ -18,7 +18,10 @@ const getSignedUrl = async (imageUrl) => {
     try {
         // Extraire la clé de l'URL complète
         const urlParts = imageUrl.split('.amazonaws.com/');
-        if (urlParts.length !== 2) return null;
+        if (urlParts.length !== 2) {
+            console.log('URL invalide:', imageUrl);
+            return null;
+        }
         
         const key = urlParts[1];
         console.log('Génération URL signée pour la clé:', key);
@@ -30,6 +33,7 @@ const getSignedUrl = async (imageUrl) => {
             Expires: 3600
         });
         
+        console.log('URL signée générée avec succès:', signedUrl);
         return signedUrl;
     } catch (error) {
         console.error('Erreur lors de la génération de l\'URL signée:', error);
@@ -261,48 +265,61 @@ const updatePopularity = async (req, res) => {
 
 const getRecent = async (req, res) => {
     try {
+        console.log('Récupération des pistes récentes...');
         const recentTracks = await Track.find()
             .sort({ createdAt: -1 })
             .limit(10)
             .populate('artistId', 'name')
             .populate('albumId', 'coverImage');
 
-        console.log('Morceaux récupérés avec leurs albums:', recentTracks.map(track => ({
-            title: track.title,
-            albumId: track.albumId?._id,
-            albumCoverImage: track.albumId?.coverImage
-        })));
+        console.log('Nombre de pistes trouvées:', recentTracks.length);
 
         const tracksWithUrls = await Promise.all(recentTracks.map(async (track) => {
             try {
+                console.log('\nTraitement de la piste:', track.title);
                 let imageUrl = DEFAULT_IMAGE;
+                let audioUrl = null;
                 
-                // Si l'album a des images configurées, essayer de générer une URL signée
+                // Signer l'URL de l'image
                 if (track.albumId?.coverImage) {
                     const selectedImage = track.albumId.coverImage.medium || 
                                        track.albumId.coverImage.large || 
                                        track.albumId.coverImage.thumbnail;
                     
-                    console.log(`Image sélectionnée pour ${track.title}:`, selectedImage);
-                    
                     if (selectedImage) {
-                        const signedUrl = await getSignedUrl(selectedImage);
-                        console.log(`URL signée générée pour ${track.title}:`, signedUrl);
-                        if (signedUrl) {
-                            imageUrl = signedUrl;
+                        console.log('URL image originale:', selectedImage);
+                        const signedImageUrl = await getSignedUrl(selectedImage);
+                        if (signedImageUrl) {
+                            imageUrl = signedImageUrl;
+                            console.log('URL image signée générée');
                         }
                     }
+                }
+
+                // Signer l'URL audio
+                if (track.audioUrl) {
+                    console.log('URL audio originale:', track.audioUrl);
+                    const signedAudioUrl = await getSignedUrl(track.audioUrl);
+                    if (signedAudioUrl) {
+                        audioUrl = signedAudioUrl;
+                        console.log('URL audio signée générée:', audioUrl);
+                    } else {
+                        console.log('Échec de la génération de l\'URL audio signée');
+                    }
                 } else {
-                    console.log(`Pas d'image trouvée pour ${track.title} (Album ID: ${track.albumId?._id})`);
+                    console.log('Aucune URL audio trouvée pour la piste:', track.title);
                 }
                 
-                return {
+                const trackData = {
                     id: track._id,
                     title: track.title,
                     artist: track.artistId?.name || 'Artiste inconnu',
                     coverUrl: imageUrl,
-                    duration: track.duration
+                    duration: track.duration,
+                    audioUrl: audioUrl,
                 };
+                console.log('Données de piste préparées:', trackData);
+                return trackData;
             } catch (error) {
                 console.error('Erreur lors du traitement du morceau:', track.title, error);
                 return {
@@ -310,12 +327,13 @@ const getRecent = async (req, res) => {
                     title: track.title,
                     artist: track.artistId?.name || 'Artiste inconnu',
                     coverUrl: DEFAULT_IMAGE,
-                    duration: track.duration
+                    duration: track.duration,
+                    audioUrl: track.previewUrl,
                 };
             }
         }));
 
-        console.log('Morceaux formatés avec leurs URLs:', tracksWithUrls);
+        console.log('\nEnvoi de la réponse avec', tracksWithUrls.length, 'pistes');
         res.json(tracksWithUrls);
     } catch (error) {
         console.error('Erreur dans getRecent:', error);

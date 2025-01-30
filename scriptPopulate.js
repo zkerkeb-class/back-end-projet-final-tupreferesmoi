@@ -16,8 +16,12 @@ const stats = {
   totalFiles: 0,
   successCount: 0,
   failureCount: 0,
-  failures: []
+  failures: [],
+  startTime: Date.now()
 };
+
+// Cache pour les images
+const imageCache = new Map();
 
 Ffmpeg.setFfmpegPath('/usr/local/bin/ffmpeg');
 
@@ -33,6 +37,7 @@ connectToDatabase();
 
 const localDirectory = './library';
 const MAX_FILES = 100;
+const BATCH_SIZE = 2; // Traitement de 2 fichiers en parallèle
 
 function walkSync(dir, filelist = []) {
   fs.readdirSync(dir).forEach(file => {
@@ -53,18 +58,56 @@ function walkSync(dir, filelist = []) {
 async function uploadImageToS3(imageBuffer, format, prefix) {
   if (!imageBuffer) return null;
   
+  // Vérifier le cache
+  const cacheKey = `${prefix}-${imageBuffer.length}`;
+  if (imageCache.has(cacheKey)) {
+    return imageCache.get(cacheKey);
+  }
+  
   try {
-    // Définition des tailles avec une meilleure qualité
     const sizes = {
-      thumbnail: { width: 300, height: 300 },  // Augmenté de 150 à 300
-      medium: { width: 600, height: 600 },     // Augmenté de 400 à 600
-      large: { width: 1200, height: 1200 }     // Augmenté de 800 à 1200
+      thumbnail: { width: 300, height: 300 },
+      medium: { width: 600, height: 600 },
+      large: { width: 1200, height: 1200 }
     };
 
-    const urls = {};
+    // Générer un hash unique pour l'image
+    const imageHash = require('crypto')
+      .createHash('md5')
+      .update(imageBuffer)
+      .digest('hex');
 
-    // Génération et upload des différentes tailles
-    for (const [size, dimensions] of Object.entries(sizes)) {
+    // Vérifier si les images existent déjà pour ce hash
+    const existingUrls = {};
+    const checkPromises = Object.keys(sizes).map(async (size) => {
+      const imageKey = `images/${prefix}-${size}-${imageHash}.webp`;
+      try {
+        await s3.headObject({
+          Bucket: process.env.AWS_BUCKET_NAME,
+          Key: imageKey
+        }).promise();
+        existingUrls[size] = `https://${process.env.AWS_BUCKET_NAME}.s3.amazonaws.com/${imageKey}`;
+        return true;
+      } catch (error) {
+        if (error.code === 'NotFound') {
+          return false;
+        }
+        throw error;
+      }
+    });
+
+    const existingResults = await Promise.all(checkPromises);
+    if (existingResults.every(exists => exists)) {
+      imageCache.set(cacheKey, existingUrls);
+      return existingUrls;
+    }
+
+    // Traitement parallèle des images manquantes
+    const uploadPromises = Object.entries(sizes).map(async ([size, dimensions], index) => {
+      if (existingResults[index]) {
+        return [size, existingUrls[size]];
+      }
+
       const webpBuffer = await sharp(imageBuffer)
         .resize(dimensions.width, dimensions.height, {
           fit: 'cover',
@@ -72,13 +115,13 @@ async function uploadImageToS3(imageBuffer, format, prefix) {
           withoutEnlargement: true
         })
         .webp({ 
-          quality: 95,  // Augmenté de 80 à 95
-          effort: 6,    // Meilleur effort de compression
-          smartSubsample: true  // Meilleure qualité pour les zones colorées
+          quality: 95,
+          effort: 6,
+          smartSubsample: true
         })
         .toBuffer();
       
-      const imageKey = `images/${prefix}-${size}-${Date.now()}.webp`;
+      const imageKey = `images/${prefix}-${size}-${imageHash}.webp`;
       await s3.upload({
         Bucket: process.env.AWS_BUCKET_NAME,
         Key: imageKey,
@@ -86,9 +129,14 @@ async function uploadImageToS3(imageBuffer, format, prefix) {
         ContentType: 'image/webp'
       }).promise();
       
-      urls[size] = `https://${process.env.AWS_BUCKET_NAME}.s3.amazonaws.com/${imageKey}`;
-    }
+      return [size, `https://${process.env.AWS_BUCKET_NAME}.s3.amazonaws.com/${imageKey}`];
+    });
+
+    const results = await Promise.all(uploadPromises);
+    const urls = Object.fromEntries(results);
     
+    // Mettre en cache
+    imageCache.set(cacheKey, urls);
     return urls;
   } catch (error) {
     console.error('Erreur lors de la conversion/upload de l\'image:', error);
@@ -144,119 +192,133 @@ async function processAudioFile(filePath) {
         const artistNames = artistString.split(',').map(name => name.trim());
         const artists = [];
         
-        for (const name of artistNames) {
+        // Traitement parallèle des artistes
+        const artistPromises = artistNames.map(async name => {
           if (name) {
-            const artist = await Artist.findOneAndUpdate(
+            return await Artist.findOneAndUpdate(
               {name},
               {
                 name,
                 genres: common.genre || [],
-                image: null // L'image sera mise à jour plus tard si nécessaire
+                image: null
               },
               {upsert: true, new: true}
             );
-            artists.push(artist);
           }
-        }
-        return artists;
+          return null;
+        });
+        
+        const results = await Promise.all(artistPromises);
+        return results.filter(Boolean);
       };
 
-      if (fileExtension !== '.m4a') {
-        outputFilePath = `${filePath}.m4a`;
-        await new Promise((resolve, reject) => {
-          Ffmpeg(filePath)
-            .outputOptions([
-              '-vn',
-              '-acodec aac',
-              '-b:a 256k'
-            ])
-            .on('end', () => resolve(outputFilePath))
-            .on('error', err => {
-              console.error('Error during conversion:', err);
-              reject(err);
-            })
-            .save(outputFilePath);
-        });
+      // Traitement parallèle de la conversion audio et des artistes
+      const [conversionResult, mainArtists, featuredArtists] = await Promise.all([
+        // Conversion audio
+        (async () => {
+          if (fileExtension !== '.m4a') {
+            outputFilePath = `${filePath}.m4a`;
+            await new Promise((resolve, reject) => {
+              Ffmpeg(filePath)
+                .outputOptions(['-vn', '-acodec aac', '-b:a 256k'])
+                .on('end', () => resolve())
+                .on('error', reject)
+                .save(outputFilePath);
+            });
+          }
+          return outputFilePath;
+        })(),
+        // Artistes principaux
+        processArtists(common.artist),
+        // Artistes featuring
+        processArtists(common.artists?.join(','))
+      ]);
+      
+      // Si aucun artiste principal n'est trouvé, créer un artiste "Unknown"
+      if (!mainArtists.length) {
+        const unknownArtist = await Artist.findOneAndUpdate(
+          { name: 'Unknown Artist' },
+          {
+            name: 'Unknown Artist',
+            genres: common.genre || [],
+            image: null
+          },
+          { upsert: true, new: true }
+        );
+        mainArtists.push(unknownArtist);
       }
-
-      // Traitement des artistes principaux et featuring
-      const mainArtists = await processArtists(common.artist);
-      const featuredArtists = await processArtists(common.artists?.join(','));
       
       // Fusionner les listes d'artistes sans doublons
       const allArtists = [...new Set([...mainArtists, ...featuredArtists])];
       
       const albumTitle = common.album || 'Unknown Album';
-
       const currentYear = new Date().getFullYear();
-      let year;
-      try {
-        year = common.year || (common.date ? new Date(common.date).getFullYear() : currentYear);
-        if (isNaN(year)) throw new Error('Invalid year');
-      } catch (dateError) {
-        console.error('Invalid date format, using current year:', dateError);
-        year = currentYear;
-      }
+      const year = common.year || (common.date ? new Date(common.date).getFullYear() : currentYear);
 
-      // Upload des images vers S3
+      // Traitement parallèle des images
       let albumCoverUrls = null;
-      
       if (common.picture?.length) {
         const picture = common.picture[0];
-        // Mettre à jour l'image pour tous les artistes
-        for (const artist of allArtists) {
-          const artistImageUrls = await uploadImageToS3(picture.data, picture.format, `artist-${artist.name}`);
-          await Artist.findByIdAndUpdate(artist._id, { 
-            image: {
-              thumbnail: artistImageUrls?.thumbnail || null,
-              medium: artistImageUrls?.medium || null,
-              large: artistImageUrls?.large || null
-            }
-          });
-        }
-        albumCoverUrls = await uploadImageToS3(picture.data, picture.format, `album-${albumTitle}`);
+        const [albumUrls, ...artistUpdates] = await Promise.all([
+          // Upload de la cover d'album
+          uploadImageToS3(picture.data, picture.format, `album-${albumTitle}`),
+          // Upload des images d'artistes en parallèle
+          ...allArtists.map(artist =>
+            uploadImageToS3(picture.data, picture.format, `artist-${artist.name}`)
+              .then(urls => 
+                Artist.findByIdAndUpdate(artist._id, {
+                  image: {
+                    thumbnail: urls?.thumbnail || null,
+                    medium: urls?.medium || null,
+                    large: urls?.large || null
+                  }
+                })
+              )
+          )
+        ]);
+        albumCoverUrls = albumUrls;
       }
 
-      // Créer ou mettre à jour l'album avec tous les artistes
-      const album = await Album.findOneAndUpdate(
-        {title: albumTitle, artistId: mainArtists[0]?._id},
-        {
-          title: albumTitle,
-          artistId: mainArtists[0]?._id,
-          releaseDate: isNaN(year) ? new Date(currentYear, 0, 1) : new Date(year, 0, 1),
-          genres: common.genre || [],
-          coverImage: {
-            thumbnail: albumCoverUrls?.thumbnail || null,
-            medium: albumCoverUrls?.medium || null,
-            large: albumCoverUrls?.large || null
+      // Création de l'album et upload du fichier audio en parallèle
+      const [album, audioUpload] = await Promise.all([
+        Album.findOneAndUpdate(
+          {title: albumTitle, artistId: mainArtists[0]?._id},
+          {
+            title: albumTitle,
+            artistId: mainArtists[0]?._id,
+            releaseDate: isNaN(year) ? new Date(currentYear, 0, 1) : new Date(year, 0, 1),
+            genres: common.genre || [],
+            coverImage: {
+              thumbnail: albumCoverUrls?.thumbnail || null,
+              medium: albumCoverUrls?.medium || null,
+              large: albumCoverUrls?.large || null
+            },
+            type: 'album',
+            trackCount: 1,
+            featuring: featuredArtists.map(artist => artist._id)
           },
-          type: 'album',
-          trackCount: 1,
-          featuring: featuredArtists.map(artist => artist._id)
-        },
-        {upsert: true, new: true}
-      );
+          {upsert: true, new: true}
+        ),
+        (async () => {
+          const newFileName = `${path.parse(originalname).name}.m4a`;
+          const s3Key = `audio-files/${newFileName}`;
+          await s3.upload({
+            Bucket: process.env.AWS_BUCKET_NAME,
+            Key: s3Key,
+            Body: fs.createReadStream(fileExtension === '.m4a' ? filePath : outputFilePath),
+            ContentType: 'audio/m4a'
+          }).promise();
+          return s3Key;
+        })()
+      ]);
 
-      // Upload du fichier sur S3
-      const newFileName = `${path.parse(originalname).name}.m4a`;
-      const s3Key = `audio-files/${newFileName}`;
-      const s3Params = {
-        Bucket: process.env.AWS_BUCKET_NAME,
-        Key: s3Key,
-        Body: fs.createReadStream(fileExtension === '.m4a' ? filePath : outputFilePath),
-        ContentType: 'audio/m4a'
-      };
-
-      await s3.upload(s3Params).promise();
-      console.log(`Uploaded ${newFileName} to S3`);
-
-      // Créer la piste avec tous les artistes
+      // Créer la piste
       const newTrack = new Track({
         title: common.title || path.parse(originalname).name,
         albumId: album._id,
         artistId: mainArtists[0]?._id,
         duration: Math.floor(format.duration),
-        fileUrl: `https://${process.env.AWS_BUCKET_NAME}.s3.amazonaws.com/${s3Key}`,
+        audioUrl: `https://${process.env.AWS_BUCKET_NAME}.s3.amazonaws.com/${audioUpload}`,
         genres: common.genre || [],
         trackNumber: common.track?.no || 1,
         featuring: featuredArtists.map(artist => artist._id),
@@ -299,15 +361,23 @@ async function processAudioFile(filePath) {
 
 async function populateDatabaseFromDirectory() {
   try {
-    const files = walkSync(localDirectory).slice(0, MAX_FILES);
+    const files = walkSync(localDirectory)
+      .filter(file => ['.mp3', '.wav', '.flac', '.m4a', '.webm', '.opus'].includes(path.extname(file).toLowerCase()))
+      .slice(0, MAX_FILES);
+    
     console.log(`Found ${files.length} files to process`);
     
-    for (const filePath of files) {
-      await processAudioFile(filePath);
+    // Traitement par lots
+    for (let i = 0; i < files.length; i += BATCH_SIZE) {
+      const batch = files.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map(processAudioFile));
+      console.log(`Progress: ${Math.min(i + BATCH_SIZE, files.length)}/${files.length} files`);
     }
     
-    // Afficher les statistiques finales
+    const duration = (Date.now() - stats.startTime) / 1000;
     console.log('\n=== Rapport Final ===');
+    console.log(`Durée totale: ${duration.toFixed(2)} secondes`);
+    console.log(`Moyenne: ${(duration / stats.totalFiles).toFixed(2)} secondes par fichier`);
     console.log(`Total des fichiers traités: ${stats.totalFiles}`);
     console.log(`Succès: ${stats.successCount}`);
     console.log(`Échecs: ${stats.failureCount}`);
@@ -324,7 +394,7 @@ async function populateDatabaseFromDirectory() {
   } catch (error) {
     console.error('Error populating database:', error);
   } finally {
-    mongoose.disconnect();
+    await mongoose.disconnect();
   }
 }
 

@@ -155,6 +155,40 @@ async function processAudioFile(filePath) {
       const metadata = await musicMetadata.parseFile(filePath);
       const {common, format} = metadata;
 
+      // Vérification plus stricte du format audio
+      console.log('Format audio détecté:', format.container);
+      
+      // Forcer le réencodage pour tous les fichiers non m4a
+      if (path.extname(filePath).toLowerCase() !== '.m4a') {
+        console.log(`Réencodage du fichier ${originalname} en m4a...`);
+        outputFilePath = `${filePath}.m4a`;
+        await new Promise((resolve, reject) => {
+          Ffmpeg(filePath)
+            .outputOptions([
+              '-vn',                // Pas de vidéo
+              '-acodec aac',        // Codec AAC
+              '-b:a 256k',          // Bitrate 256k
+              '-ar 44100',          // Sample rate 44.1kHz
+              '-af aresample=44100' // Resampling explicite
+            ])
+            .on('start', (commandLine) => {
+              console.log('Commande FFmpeg:', commandLine);
+            })
+            .on('progress', (progress) => {
+              console.log(`Progression: ${progress.percent}%`);
+            })
+            .on('end', () => {
+              console.log(`Réencodage terminé: ${outputFilePath}`);
+              resolve();
+            })
+            .on('error', (err) => {
+              console.error(`Erreur de réencodage: ${err.message}`);
+              reject(err);
+            })
+            .save(outputFilePath);
+        });
+      }
+
       const existingTrack = await Track.findOne({title: common.title || originalname});
       if (existingTrack) {
         console.log(`Track already exists in the database: ${common.title || originalname}`);
@@ -216,16 +250,6 @@ async function processAudioFile(filePath) {
       const [conversionResult, mainArtists, featuredArtists] = await Promise.all([
         // Conversion audio
         (async () => {
-          if (fileExtension !== '.m4a') {
-            outputFilePath = `${filePath}.m4a`;
-            await new Promise((resolve, reject) => {
-              Ffmpeg(filePath)
-                .outputOptions(['-vn', '-acodec aac', '-b:a 256k'])
-                .on('end', () => resolve())
-                .on('error', reject)
-                .save(outputFilePath);
-            });
-          }
           return outputFilePath;
         })(),
         // Artistes principaux

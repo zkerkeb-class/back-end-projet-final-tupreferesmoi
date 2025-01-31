@@ -112,4 +112,41 @@ router.post('/', auth, albumController.create);
 router.put('/:id', auth, albumController.update);
 router.delete('/:id', auth, albumController.deleteAlbum);
 
+/**
+ * @swagger
+ * /api/albums/{id}/tracks:
+ *   get:
+ *     tags:
+ *       - Albums
+ *     summary: Récupère les pistes d'un album
+ *     description: Retourne toutes les pistes d'un album spécifique avec les informations détaillées
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de l'album
+ *     responses:
+ *       200:
+ *         description: Liste des pistes de l'album avec les informations de l'album
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     album:
+ *                       $ref: '#/components/schemas/Album'
+ *                     tracks:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Track'
+ */
+router.get('/:id/tracks', cacheMiddleware('album-tracks', 1800), albumController.getAlbumTracks);
+
 module.exports = router; 

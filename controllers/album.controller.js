@@ -291,6 +291,63 @@ const getRecent = async (req, res) => {
     }
 };
 
+// Récupérer les pistes d'un album
+const getAlbumTracks = async (req, res) => {
+    try {
+        const Track = require('../models/track.model');
+        const tracks = await Track.find({ albumId: req.params.id })
+            .sort({ trackNumber: 1 })
+            .populate('artistId', 'name')
+            .populate('featuring', 'name');
+
+        // Récupérer les informations de l'album
+        const album = await Album.findById(req.params.id)
+            .populate('artistId', 'name')
+            .populate('featuring', 'name');
+
+        if (!album) {
+            return res.status(404).json({
+                success: false,
+                message: "Album non trouvé"
+            });
+        }
+
+        // Préparer les URLs signées pour les images de couverture si nécessaire
+        let coverUrls = {};
+        if (album.coverImage) {
+            if (album.coverImage.thumbnail) coverUrls.thumbnail = await getSignedUrl(album.coverImage.thumbnail);
+            if (album.coverImage.medium) coverUrls.medium = await getSignedUrl(album.coverImage.medium);
+            if (album.coverImage.large) coverUrls.large = await getSignedUrl(album.coverImage.large);
+        }
+
+        // Formater la réponse
+        const response = {
+            album: {
+                ...album.toObject(),
+                coverUrls
+            },
+            tracks: await Promise.all(tracks.map(async track => {
+                const audioUrl = track.audioUrl ? await getSignedUrl(track.audioUrl) : null;
+                return {
+                    ...track.toObject(),
+                    audioUrl
+                };
+            }))
+        };
+
+        res.status(200).json({
+            success: true,
+            data: response
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Erreur lors de la récupération des pistes de l'album",
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     findAll,
     findOne,
@@ -298,5 +355,6 @@ module.exports = {
     update,
     deleteAlbum,
     search,
-    getRecent
+    getRecent,
+    getAlbumTracks
 }; 

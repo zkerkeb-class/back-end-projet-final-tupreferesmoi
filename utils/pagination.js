@@ -6,9 +6,14 @@
  * @param {number} itemsPerPage - Nombre d'éléments par page
  * @returns {Object} Réponse formatée avec pagination
  */
-const formatPaginatedResponse = (data, totalItems, currentPage, itemsPerPage) => {
+const formatPaginatedResponse = (
+    data,
+    totalItems,
+    currentPage,
+    itemsPerPage
+) => {
     const totalPages = Math.ceil(totalItems / itemsPerPage);
-    
+
     return {
         success: true,
         data,
@@ -18,11 +23,11 @@ const formatPaginatedResponse = (data, totalItems, currentPage, itemsPerPage) =>
             totalItems,
             totalPages,
             hasNextPage: currentPage < totalPages,
-            hasPreviousPage: currentPage > 1
-        }
+            hasPreviousPage: currentPage > 1,
+        },
     };
 };
 
 module.exports = {
-    formatPaginatedResponse
-}; 
+    formatPaginatedResponse,
+};

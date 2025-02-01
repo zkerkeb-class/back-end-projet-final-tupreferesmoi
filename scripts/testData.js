@@ -1,18 +1,18 @@
-const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-const Track = require('../models/track.model');
-const Album = require('../models/album.model');
-const Artist = require('../models/artist.model');
-const path = require('path');
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
+const Track = require("../models/track.model");
+const Album = require("../models/album.model");
+const Artist = require("../models/artist.model");
+const path = require("path");
 
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
-console.log('URL MongoDB:', process.env.MONGO_URL);
+console.log("URL MongoDB:", process.env.MONGO_URL);
 
 const createTestData = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URL);
-        console.log('Connecté à MongoDB');
+        console.log("Connecté à MongoDB");
 
         // Créer un artiste
         const artist = await Artist.create({
@@ -21,8 +21,8 @@ const createTestData = async () => {
             image: {
                 thumbnail: "https://example.com/thumb.jpg",
                 medium: "https://example.com/medium.jpg",
-                large: "https://example.com/large.jpg"
-            }
+                large: "https://example.com/large.jpg",
+            },
         });
 
         // Créer un album
@@ -34,9 +34,9 @@ const createTestData = async () => {
             coverImage: {
                 thumbnail: "https://example.com/album-thumb.jpg",
                 medium: "https://example.com/album-medium.jpg",
-                large: "https://example.com/album-large.jpg"
+                large: "https://example.com/album-large.jpg",
             },
-            type: "album"
+            type: "album",
         });
 
         // Créer quelques tracks
@@ -48,7 +48,7 @@ const createTestData = async () => {
                 duration: 180,
                 fileUrl: "https://example.com/song1.mp3",
                 genres: ["Pop"],
-                trackNumber: 1
+                trackNumber: 1,
             },
             {
                 title: "Chanson 2",
@@ -57,7 +57,7 @@ const createTestData = async () => {
                 duration: 200,
                 fileUrl: "https://example.com/song2.mp3",
                 genres: ["Rock"],
-                trackNumber: 2
+                trackNumber: 2,
             },
             {
                 title: "Chanson 3",
@@ -66,21 +66,20 @@ const createTestData = async () => {
                 duration: 220,
                 fileUrl: "https://example.com/song3.mp3",
                 genres: ["Pop", "Rock"],
-                trackNumber: 3
-            }
+                trackNumber: 3,
+            },
         ]);
 
-        console.log('Données de test créées avec succès');
-        console.log('Artist ID:', artist._id);
-        console.log('Album ID:', album._id);
-        console.log('Tracks créées:', tracks.length);
-
+        console.log("Données de test créées avec succès");
+        console.log("Artist ID:", artist._id);
+        console.log("Album ID:", album._id);
+        console.log("Tracks créées:", tracks.length);
     } catch (error) {
-        console.error('Erreur:', error);
+        console.error("Erreur:", error);
     } finally {
         await mongoose.disconnect();
-        console.log('Déconnecté de MongoDB');
+        console.log("Déconnecté de MongoDB");
     }
 };
 
-createTestData(); 
+createTestData();

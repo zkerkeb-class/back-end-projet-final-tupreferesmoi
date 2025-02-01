@@ -1,9 +1,9 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const artistController = require('../controllers/artist.controller');
-const paginationMiddleware = require('../middleware/pagination');
-const auth = require('../middleware/auth');
-const cacheMiddleware = require('../middleware/cache.middleware');
+const artistController = require("../controllers/artist.controller");
+const paginationMiddleware = require("../middleware/pagination");
+const auth = require("../middleware/auth");
+const cacheMiddleware = require("../middleware/cache.middleware");
 
 /**
  * @swagger
@@ -95,15 +95,36 @@ const cacheMiddleware = require('../middleware/cache.middleware');
  */
 
 // Routes publiques avec cache
-router.get('/popular', cacheMiddleware('artists-popular', 600), artistController.getPopular);
-router.get('/search/query', cacheMiddleware('artist-search', 600), artistController.search);
-router.get('/', paginationMiddleware, cacheMiddleware('artists-list', 1200), artistController.findAll);
-router.get('/:id', cacheMiddleware('artist-detail', 1800), artistController.findOne);
-router.get('/:id/top-tracks', cacheMiddleware('artist-top-tracks', 1800), artistController.getTopTracks);
+router.get(
+    "/popular",
+    cacheMiddleware("artists-popular", 600),
+    artistController.getPopular
+);
+router.get(
+    "/search/query",
+    cacheMiddleware("artist-search", 600),
+    artistController.search
+);
+router.get(
+    "/",
+    paginationMiddleware,
+    cacheMiddleware("artists-list", 1200),
+    artistController.findAll
+);
+router.get(
+    "/:id",
+    cacheMiddleware("artist-detail", 1800),
+    artistController.findOne
+);
+router.get(
+    "/:id/top-tracks",
+    cacheMiddleware("artist-top-tracks", 1800),
+    artistController.getTopTracks
+);
 
 // Routes protégées sans cache
-router.post('/', auth, artistController.create);
-router.put('/:id', auth, artistController.update);
-router.delete('/:id', auth, artistController.deleteArtist);
+router.post("/", auth, artistController.create);
+router.put("/:id", auth, artistController.update);
+router.delete("/:id", auth, artistController.deleteArtist);
 
-module.exports = router; 
+module.exports = router;

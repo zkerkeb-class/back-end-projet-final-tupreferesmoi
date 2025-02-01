@@ -1,4 +1,4 @@
-const Playlist = require('../models/playlist.model');
+const Playlist = require("../models/playlist.model");
 
 // Récupérer toutes les playlists avec pagination
 const findAll = async (req, res) => {
@@ -19,15 +19,19 @@ const findAll = async (req, res) => {
         // Filtre par durée totale
         if (req.query.minDuration || req.query.maxDuration) {
             query.totalDuration = {};
-            if (req.query.minDuration) query.totalDuration.$gte = parseInt(req.query.minDuration);
-            if (req.query.maxDuration) query.totalDuration.$lte = parseInt(req.query.maxDuration);
+            if (req.query.minDuration)
+                query.totalDuration.$gte = parseInt(req.query.minDuration);
+            if (req.query.maxDuration)
+                query.totalDuration.$lte = parseInt(req.query.maxDuration);
         }
 
         // Filtre par nombre de pistes
         if (req.query.minTracks || req.query.maxTracks) {
             query.totalTracks = {};
-            if (req.query.minTracks) query.totalTracks.$gte = parseInt(req.query.minTracks);
-            if (req.query.maxTracks) query.totalTracks.$lte = parseInt(req.query.maxTracks);
+            if (req.query.minTracks)
+                query.totalTracks.$gte = parseInt(req.query.minTracks);
+            if (req.query.maxTracks)
+                query.totalTracks.$lte = parseInt(req.query.maxTracks);
         }
 
         const [playlists, total] = await Promise.all([
@@ -35,16 +39,16 @@ const findAll = async (req, res) => {
                 .sort(sort)
                 .skip(skip)
                 .limit(limit)
-                .populate('userId', 'username')
+                .populate("userId", "username")
                 .populate({
-                    path: 'tracks',
-                    select: 'title duration artistId',
+                    path: "tracks",
+                    select: "title duration artistId",
                     populate: {
-                        path: 'artistId',
-                        select: 'name'
-                    }
+                        path: "artistId",
+                        select: "name",
+                    },
                 }),
-            Playlist.countDocuments(query)
+            Playlist.countDocuments(query),
         ]);
 
         const totalPages = Math.ceil(total / limit);
@@ -58,14 +62,14 @@ const findAll = async (req, res) => {
                 totalItems: total,
                 totalPages,
                 hasNextPage: page < totalPages,
-                hasPreviousPage: page > 1
-            }
+                hasPreviousPage: page > 1,
+            },
         });
     } catch (error) {
         res.status(500).json({
             success: false,
             message: "Erreur lors de la récupération des playlists",
-            error: error.message
+            error: error.message,
         });
     }
 };
@@ -74,40 +78,43 @@ const findAll = async (req, res) => {
 const findOne = async (req, res) => {
     try {
         const playlist = await Playlist.findById(req.params.id)
-            .populate('userId', 'username')
+            .populate("userId", "username")
             .populate({
-                path: 'tracks',
-                select: 'title duration artistId albumId',
+                path: "tracks",
+                select: "title duration artistId albumId",
                 populate: [
-                    { path: 'artistId', select: 'name' },
-                    { path: 'albumId', select: 'title coverImage' }
-                ]
+                    { path: "artistId", select: "name" },
+                    { path: "albumId", select: "title coverImage" },
+                ],
             });
 
         if (!playlist) {
             return res.status(404).json({
                 success: false,
-                message: "Playlist non trouvée"
+                message: "Playlist non trouvée",
             });
         }
 
         // Vérifier si l'utilisateur a le droit de voir cette playlist
-        if (!playlist.isPublic && (!req.user || playlist.userId.toString() !== req.user.id)) {
+        if (
+            !playlist.isPublic &&
+            (!req.user || playlist.userId.toString() !== req.user.id)
+        ) {
             return res.status(403).json({
                 success: false,
-                message: "Vous n'avez pas accès à cette playlist"
+                message: "Vous n'avez pas accès à cette playlist",
             });
         }
 
         res.status(200).json({
             success: true,
-            data: playlist
+            data: playlist,
         });
     } catch (error) {
         res.status(500).json({
             success: false,
             message: "Erreur lors de la récupération de la playlist",
-            error: error.message
+            error: error.message,
         });
     }
 };
@@ -117,30 +124,30 @@ const create = async (req, res) => {
     try {
         const playlist = new Playlist({
             ...req.body,
-            userId: req.user.id
+            userId: req.user.id,
         });
         const newPlaylist = await playlist.save();
 
         const populatedPlaylist = await Playlist.findById(newPlaylist._id)
-            .populate('userId', 'username')
+            .populate("userId", "username")
             .populate({
-                path: 'tracks',
-                select: 'title duration artistId',
+                path: "tracks",
+                select: "title duration artistId",
                 populate: {
-                    path: 'artistId',
-                    select: 'name'
-                }
+                    path: "artistId",
+                    select: "name",
+                },
             });
 
         res.status(201).json({
             success: true,
-            data: populatedPlaylist
+            data: populatedPlaylist,
         });
     } catch (error) {
         res.status(400).json({
             success: false,
             message: "Erreur lors de la création de la playlist",
-            error: error.message
+            error: error.message,
         });
     }
 };
@@ -150,13 +157,14 @@ const update = async (req, res) => {
     try {
         const playlist = await Playlist.findOne({
             _id: req.params.id,
-            userId: req.user.id
+            userId: req.user.id,
         });
 
         if (!playlist) {
             return res.status(404).json({
                 success: false,
-                message: "Playlist non trouvée ou vous n'êtes pas autorisé à la modifier"
+                message:
+                    "Playlist non trouvée ou vous n'êtes pas autorisé à la modifier",
             });
         }
 
@@ -165,25 +173,25 @@ const update = async (req, res) => {
             req.body,
             { new: true, runValidators: true }
         )
-        .populate('userId', 'username')
-        .populate({
-            path: 'tracks',
-            select: 'title duration artistId',
-            populate: {
-                path: 'artistId',
-                select: 'name'
-            }
-        });
+            .populate("userId", "username")
+            .populate({
+                path: "tracks",
+                select: "title duration artistId",
+                populate: {
+                    path: "artistId",
+                    select: "name",
+                },
+            });
 
         res.status(200).json({
             success: true,
-            data: updatedPlaylist
+            data: updatedPlaylist,
         });
     } catch (error) {
         res.status(400).json({
             success: false,
             message: "Erreur lors de la mise à jour de la playlist",
-            error: error.message
+            error: error.message,
         });
     }
 };
@@ -193,25 +201,26 @@ const deletePlaylist = async (req, res) => {
     try {
         const playlist = await Playlist.findOneAndDelete({
             _id: req.params.id,
-            userId: req.user.id
+            userId: req.user.id,
         });
 
         if (!playlist) {
             return res.status(404).json({
                 success: false,
-                message: "Playlist non trouvée ou vous n'êtes pas autorisé à la supprimer"
+                message:
+                    "Playlist non trouvée ou vous n'êtes pas autorisé à la supprimer",
             });
         }
 
         res.status(200).json({
             success: true,
-            message: "Playlist supprimée avec succès"
+            message: "Playlist supprimée avec succès",
         });
     } catch (error) {
         res.status(500).json({
             success: false,
             message: "Erreur lors de la suppression de la playlist",
-            error: error.message
+            error: error.message,
         });
     }
 };
@@ -221,13 +230,14 @@ const addTrack = async (req, res) => {
     try {
         const playlist = await Playlist.findOne({
             _id: req.params.id,
-            userId: req.user.id
+            userId: req.user.id,
         });
 
         if (!playlist) {
             return res.status(404).json({
                 success: false,
-                message: "Playlist non trouvée ou vous n'êtes pas autorisé à la modifier"
+                message:
+                    "Playlist non trouvée ou vous n'êtes pas autorisé à la modifier",
             });
         }
 
@@ -235,7 +245,7 @@ const addTrack = async (req, res) => {
         if (playlist.tracks.includes(trackId)) {
             return res.status(400).json({
                 success: false,
-                message: "Cette piste est déjà dans la playlist"
+                message: "Cette piste est déjà dans la playlist",
             });
         }
 
@@ -243,25 +253,25 @@ const addTrack = async (req, res) => {
         await playlist.save();
 
         const updatedPlaylist = await Playlist.findById(playlist._id)
-            .populate('userId', 'username')
+            .populate("userId", "username")
             .populate({
-                path: 'tracks',
-                select: 'title duration artistId',
+                path: "tracks",
+                select: "title duration artistId",
                 populate: {
-                    path: 'artistId',
-                    select: 'name'
-                }
+                    path: "artistId",
+                    select: "name",
+                },
             });
 
         res.status(200).json({
             success: true,
-            data: updatedPlaylist
+            data: updatedPlaylist,
         });
     } catch (error) {
         res.status(400).json({
             success: false,
             message: "Erreur lors de l'ajout de la piste à la playlist",
-            error: error.message
+            error: error.message,
         });
     }
 };
@@ -271,23 +281,24 @@ const removeTrack = async (req, res) => {
     try {
         const playlist = await Playlist.findOne({
             _id: req.params.id,
-            userId: req.user.id
+            userId: req.user.id,
         });
 
         if (!playlist) {
             return res.status(404).json({
                 success: false,
-                message: "Playlist non trouvée ou vous n'êtes pas autorisé à la modifier"
+                message:
+                    "Playlist non trouvée ou vous n'êtes pas autorisé à la modifier",
             });
         }
 
         const trackId = req.params.trackId;
         const trackIndex = playlist.tracks.indexOf(trackId);
-        
+
         if (trackIndex === -1) {
             return res.status(400).json({
                 success: false,
-                message: "Cette piste n'est pas dans la playlist"
+                message: "Cette piste n'est pas dans la playlist",
             });
         }
 
@@ -295,25 +306,25 @@ const removeTrack = async (req, res) => {
         await playlist.save();
 
         const updatedPlaylist = await Playlist.findById(playlist._id)
-            .populate('userId', 'username')
+            .populate("userId", "username")
             .populate({
-                path: 'tracks',
-                select: 'title duration artistId',
+                path: "tracks",
+                select: "title duration artistId",
                 populate: {
-                    path: 'artistId',
-                    select: 'name'
-                }
+                    path: "artistId",
+                    select: "name",
+                },
             });
 
         res.status(200).json({
             success: true,
-            data: updatedPlaylist
+            data: updatedPlaylist,
         });
     } catch (error) {
         res.status(400).json({
             success: false,
             message: "Erreur lors du retrait de la piste de la playlist",
-            error: error.message
+            error: error.message,
         });
     }
 };
@@ -325,5 +336,5 @@ module.exports = {
     update,
     deletePlaylist,
     addTrack,
-    removeTrack
-}; 
+    removeTrack,
+};

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 /**
  * @swagger
@@ -67,73 +67,77 @@ const mongoose = require('mongoose');
 const trackSchema = new mongoose.Schema({
     title: {
         type: String,
-        required: true
+        required: true,
     },
     albumId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Album',
-        required: true
+        ref: "Album",
+        required: true,
     },
     artistId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Artist',
-        required: true
+        ref: "Artist",
+        required: true,
     },
     duration: {
         type: Number,
-        required: true
+        required: true,
     },
     audioUrl: {
         type: String,
-        required: true
+        required: true,
     },
-    featuring: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Artist'
-    }],
-    genres: [{
-        type: String
-    }],
+    featuring: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Artist",
+        },
+    ],
+    genres: [
+        {
+            type: String,
+        },
+    ],
     popularity: {
         type: Number,
-        default: 0
+        default: 0,
     },
     explicit: {
         type: Boolean,
-        default: false
+        default: false,
     },
     lyrics: {
-        type: String
+        type: String,
     },
     trackNumber: {
         type: Number,
-        required: true
+        required: true,
     },
     previewUrl: String,
     createdAt: {
         type: Date,
-        default: Date.now
+        default: Date.now,
     },
     updatedAt: {
         type: Date,
-        default: Date.now
-    }
+        default: Date.now,
+    },
 });
 
 // Index pour améliorer les performances de recherche
-trackSchema.index({ title: 'text' });
+trackSchema.index({ title: "text" });
 
 // Middleware pour mettre à jour updatedAt avant chaque sauvegarde
-trackSchema.pre('save', function(next) {
+trackSchema.pre("save", function (next) {
     this.updatedAt = Date.now();
     next();
 });
 
 // Méthode virtuelle pour obtenir la durée formatée
-trackSchema.virtual('durationFormatted').get(function() {
+trackSchema.virtual("durationFormatted").get(function () {
     const minutes = Math.floor(this.duration / 60);
     const seconds = this.duration % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 });
 
-module.exports = mongoose.model('Track', trackSchema); 
+module.exports = mongoose.model("Track", trackSchema);

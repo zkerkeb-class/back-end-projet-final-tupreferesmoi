@@ -1,5 +1,5 @@
-const User = require('../models/user.model');
-const jwt = require('jsonwebtoken');
+const User = require("../models/user.model");
+const jwt = require("jsonwebtoken");
 
 // Inscription d'un nouvel utilisateur
 exports.register = async (req, res) => {
@@ -8,12 +8,12 @@ exports.register = async (req, res) => {
 
         // Vérifier si l'email ou le username existe déjà
         const existingUser = await User.findOne({
-            $or: [{ email }, { username }]
+            $or: [{ email }, { username }],
         });
 
         if (existingUser) {
             return res.status(400).json({
-                message: "Email ou nom d'utilisateur déjà utilisé"
+                message: "Email ou nom d'utilisateur déjà utilisé",
             });
         }
 
@@ -21,11 +21,9 @@ exports.register = async (req, res) => {
         await user.save();
 
         // Générer le token JWT
-        const token = jwt.sign(
-            { userId: user._id },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
-        );
+        const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+            expiresIn: "24h",
+        });
 
         res.status(201).json({ user, token });
     } catch (error) {
@@ -41,15 +39,13 @@ exports.login = async (req, res) => {
 
         if (!user || !(await user.comparePassword(password))) {
             return res.status(401).json({
-                message: "Email ou mot de passe incorrect"
+                message: "Email ou mot de passe incorrect",
             });
         }
 
-        const token = jwt.sign(
-            { userId: user._id },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
-        );
+        const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+            expiresIn: "24h",
+        });
 
         res.status(200).json({ user, token });
     } catch (error) {
@@ -76,11 +72,10 @@ exports.updateProfile = async (req, res) => {
         const updates = req.body;
         delete updates.password; // Empêcher la modification directe du mot de passe
 
-        const user = await User.findByIdAndUpdate(
-            req.user.userId,
-            updates,
-            { new: true, runValidators: true }
-        );
+        const user = await User.findByIdAndUpdate(req.user.userId, updates, {
+            new: true,
+            runValidators: true,
+        });
 
         if (!user) {
             return res.status(404).json({ message: "Utilisateur non trouvé" });
@@ -100,7 +95,7 @@ exports.changePassword = async (req, res) => {
 
         if (!user || !(await user.comparePassword(currentPassword))) {
             return res.status(401).json({
-                message: "Mot de passe actuel incorrect"
+                message: "Mot de passe actuel incorrect",
             });
         }
 
@@ -143,4 +138,4 @@ exports.deleteAccount = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
-}; 
+};

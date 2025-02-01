@@ -1,9 +1,9 @@
-const express = require('express');
-const { uploadLimiter } = require('../config/rateLimit');
-const trackController = require('../controllers/track.controller');
-const auth = require('../middleware/auth');
-const paginationMiddleware = require('../middleware/pagination');
-const cacheMiddleware = require('../middleware/cache.middleware');
+const express = require("express");
+const { uploadLimiter } = require("../config/rateLimit");
+const trackController = require("../controllers/track.controller");
+const auth = require("../middleware/auth");
+const paginationMiddleware = require("../middleware/pagination");
+const cacheMiddleware = require("../middleware/cache.middleware");
 
 const router = express.Router();
 
@@ -107,17 +107,39 @@ const router = express.Router();
  */
 
 // Routes publiques avec cache
-router.get('/recent', cacheMiddleware('tracks-recent', 600), trackController.getRecent);
-router.get('/search/query', cacheMiddleware('track-search', 600), trackController.search);
-router.get('/', paginationMiddleware, cacheMiddleware('tracks-list', 1200), trackController.findAll);
-router.get('/:id', cacheMiddleware('track-detail', 1800), trackController.findOne);
+router.get(
+    "/recent",
+    cacheMiddleware("tracks-recent", 600),
+    trackController.getRecent
+);
+router.get(
+    "/search/query",
+    cacheMiddleware("track-search", 600),
+    trackController.search
+);
+router.get(
+    "/",
+    paginationMiddleware,
+    cacheMiddleware("tracks-list", 1200),
+    trackController.findAll
+);
+router.get(
+    "/:id",
+    cacheMiddleware("track-detail", 1800),
+    trackController.findOne
+);
 
 // Routes de mise à jour de popularité (avec cache court)
-router.patch('/:id/popularity', auth, cacheMiddleware('track-popularity', 300), trackController.updatePopularity);
+router.patch(
+    "/:id/popularity",
+    auth,
+    cacheMiddleware("track-popularity", 300),
+    trackController.updatePopularity
+);
 
 // Routes protégées sans cache
-router.post('/', auth, trackController.create);
-router.put('/:id', auth, trackController.update);
-router.delete('/:id', auth, trackController.deleteTrack);
+router.post("/", auth, trackController.create);
+router.put("/:id", auth, trackController.update);
+router.delete("/:id", auth, trackController.deleteTrack);
 
-module.exports = router; 
+module.exports = router;

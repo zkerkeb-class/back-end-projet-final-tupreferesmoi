@@ -1,8 +1,8 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const playlistController = require('../controllers/playlist.controller');
-const auth = require('../middleware/auth');
-const paginationMiddleware = require('../middleware/pagination');
+const playlistController = require("../controllers/playlist.controller");
+const auth = require("../middleware/auth");
+const paginationMiddleware = require("../middleware/pagination");
 
 /**
  * @swagger
@@ -54,7 +54,7 @@ const paginationMiddleware = require('../middleware/pagination');
  *       500:
  *         description: Erreur serveur
  */
-router.get('/', paginationMiddleware, playlistController.findAll);
+router.get("/", paginationMiddleware, playlistController.findAll);
 
 /**
  * @swagger
@@ -75,7 +75,7 @@ router.get('/', paginationMiddleware, playlistController.findAll);
  *       404:
  *         description: Playlist non trouvée
  */
-router.get('/:id', playlistController.findOne);
+router.get("/:id", playlistController.findOne);
 
 /**
  * @swagger
@@ -113,7 +113,7 @@ router.get('/:id', playlistController.findOne);
  *       400:
  *         description: Données invalides
  */
-router.post('/', auth, playlistController.create);
+router.post("/", auth, playlistController.create);
 
 /**
  * @swagger
@@ -151,7 +151,7 @@ router.post('/', auth, playlistController.create);
  *       404:
  *         description: Playlist non trouvée
  */
-router.put('/:id', auth, playlistController.update);
+router.put("/:id", auth, playlistController.update);
 
 /**
  * @swagger
@@ -174,7 +174,7 @@ router.put('/:id', auth, playlistController.update);
  *       404:
  *         description: Playlist non trouvée
  */
-router.delete('/:id', auth, playlistController.deletePlaylist);
+router.delete("/:id", auth, playlistController.deletePlaylist);
 
 /**
  * @swagger
@@ -209,7 +209,7 @@ router.delete('/:id', auth, playlistController.deletePlaylist);
  *       404:
  *         description: Playlist non trouvée
  */
-router.post('/:id/tracks', auth, playlistController.addTrack);
+router.post("/:id/tracks", auth, playlistController.addTrack);
 
 /**
  * @swagger
@@ -238,6 +238,6 @@ router.post('/:id/tracks', auth, playlistController.addTrack);
  *       404:
  *         description: Playlist ou piste non trouvée
  */
-router.delete('/:id/tracks/:trackId', auth, playlistController.removeTrack);
+router.delete("/:id/tracks/:trackId", auth, playlistController.removeTrack);
 
-module.exports = router; 
+module.exports = router;

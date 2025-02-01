@@ -1,5 +1,5 @@
-const { createClient } = require('redis');
-const logger = require('../config/logger');
+const { createClient } = require("redis");
+const logger = require("../config/logger");
 
 class CacheService {
     constructor() {
@@ -11,22 +11,22 @@ class CacheService {
     async connect() {
         try {
             this.client = createClient({
-                url: process.env.REDIS_URL || 'redis://localhost:6379'
+                url: process.env.REDIS_URL || "redis://localhost:6379",
             });
 
-            this.client.on('error', (err) => {
-                logger.error('Erreur Redis:', err);
+            this.client.on("error", (err) => {
+                logger.error("Erreur Redis:", err);
                 this.isConnected = false;
             });
 
-            this.client.on('connect', () => {
-                logger.info('Connecté à Redis');
+            this.client.on("connect", () => {
+                logger.info("Connecté à Redis");
                 this.isConnected = true;
             });
 
             await this.client.connect();
         } catch (error) {
-            logger.error('Erreur de connexion à Redis:', error);
+            logger.error("Erreur de connexion à Redis:", error);
             this.isConnected = false;
         }
     }
@@ -37,7 +37,10 @@ class CacheService {
             const value = await this.client.get(key);
             return value ? JSON.parse(value) : null;
         } catch (error) {
-            logger.error(`Erreur lors de la récupération de la clé ${key}:`, error);
+            logger.error(
+                `Erreur lors de la récupération de la clé ${key}:`,
+                error
+            );
             return null;
         }
     }
@@ -46,11 +49,14 @@ class CacheService {
         try {
             if (!this.isConnected) return false;
             await this.client.set(key, JSON.stringify(value), {
-                EX: expiration
+                EX: expiration,
             });
             return true;
         } catch (error) {
-            logger.error(`Erreur lors de la définition de la clé ${key}:`, error);
+            logger.error(
+                `Erreur lors de la définition de la clé ${key}:`,
+                error
+            );
             return false;
         }
     }
@@ -61,7 +67,10 @@ class CacheService {
             await this.client.del(key);
             return true;
         } catch (error) {
-            logger.error(`Erreur lors de la suppression de la clé ${key}:`, error);
+            logger.error(
+                `Erreur lors de la suppression de la clé ${key}:`,
+                error
+            );
             return false;
         }
     }
@@ -72,7 +81,7 @@ class CacheService {
             await this.client.flushAll();
             return true;
         } catch (error) {
-            logger.error('Erreur lors du nettoyage du cache:', error);
+            logger.error("Erreur lors du nettoyage du cache:", error);
             return false;
         }
     }
@@ -83,4 +92,4 @@ class CacheService {
 }
 
 // Export d'une instance unique
-module.exports = new CacheService(); 
+module.exports = new CacheService();

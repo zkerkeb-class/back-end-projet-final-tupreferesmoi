@@ -1,4 +1,4 @@
-const cacheService = require('../services/cache.service');
+const cacheService = require("../services/cache.service");
 
 /**
  * Middleware de cache pour les requêtes GET
@@ -7,7 +7,7 @@ const cacheService = require('../services/cache.service');
  */
 const cacheMiddleware = (prefix, expiration) => async (req, res, next) => {
     // Ne mettre en cache que les requêtes GET
-    if (req.method !== 'GET') {
+    if (req.method !== "GET") {
         return next();
     }
 
@@ -15,27 +15,27 @@ const cacheMiddleware = (prefix, expiration) => async (req, res, next) => {
         // Générer une clé unique basée sur le préfixe et les paramètres de la requête
         const cacheKey = cacheService.generateKey(prefix, {
             query: req.query,
-            params: req.params
+            params: req.params,
         });
 
         // Vérifier si les données sont en cache
         const cachedData = await cacheService.get(cacheKey);
-        
+
         if (cachedData) {
             return res.json(cachedData);
         }
 
         // Stocker la réponse originale pour la mettre en cache
         const originalJson = res.json;
-        res.json = function(data) {
+        res.json = function (data) {
             // Restaurer la fonction json originale
             res.json = originalJson;
-            
+
             // Mettre en cache uniquement les réponses réussies
             if (res.statusCode >= 200 && res.statusCode < 300) {
                 cacheService.set(cacheKey, data, expiration);
             }
-            
+
             // Envoyer la réponse
             return res.json(data);
         };
@@ -47,4 +47,4 @@ const cacheMiddleware = (prefix, expiration) => async (req, res, next) => {
     }
 };
 
-module.exports = cacheMiddleware; 
+module.exports = cacheMiddleware;

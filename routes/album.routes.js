@@ -1,9 +1,9 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const albumController = require('../controllers/album.controller');
-const paginationMiddleware = require('../middleware/pagination');
-const auth = require('../middleware/auth');
-const cacheMiddleware = require('../middleware/cache.middleware');
+const albumController = require("../controllers/album.controller");
+const paginationMiddleware = require("../middleware/pagination");
+const auth = require("../middleware/auth");
+const cacheMiddleware = require("../middleware/cache.middleware");
 
 /**
  * @swagger
@@ -102,15 +102,32 @@ const cacheMiddleware = require('../middleware/cache.middleware');
  */
 
 // Routes publiques avec cache
-router.get('/recent', cacheMiddleware('albums-recent', 600), albumController.getRecent);
-router.get('/search/query', cacheMiddleware('album-search', 600), albumController.search);
-router.get('/', paginationMiddleware, cacheMiddleware('albums-list', 1200), albumController.findAll);
-router.get('/:id', cacheMiddleware('album-detail', 1800), albumController.findOne);
+router.get(
+    "/recent",
+    cacheMiddleware("albums-recent", 600),
+    albumController.getRecent
+);
+router.get(
+    "/search/query",
+    cacheMiddleware("album-search", 600),
+    albumController.search
+);
+router.get(
+    "/",
+    paginationMiddleware,
+    cacheMiddleware("albums-list", 1200),
+    albumController.findAll
+);
+router.get(
+    "/:id",
+    cacheMiddleware("album-detail", 1800),
+    albumController.findOne
+);
 
 // Routes protégées sans cache
-router.post('/', auth, albumController.create);
-router.put('/:id', auth, albumController.update);
-router.delete('/:id', auth, albumController.deleteAlbum);
+router.post("/", auth, albumController.create);
+router.put("/:id", auth, albumController.update);
+router.delete("/:id", auth, albumController.deleteAlbum);
 
 /**
  * @swagger
@@ -147,6 +164,10 @@ router.delete('/:id', auth, albumController.deleteAlbum);
  *                       items:
  *                         $ref: '#/components/schemas/Track'
  */
-router.get('/:id/tracks', cacheMiddleware('album-tracks', 1800), albumController.getAlbumTracks);
+router.get(
+    "/:id/tracks",
+    cacheMiddleware("album-tracks", 1800),
+    albumController.getAlbumTracks
+);
 
-module.exports = router; 
+module.exports = router;

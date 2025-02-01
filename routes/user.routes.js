@@ -1,14 +1,14 @@
-const express = require('express');
-const { authLimiter } = require('../config/rateLimit');
-const userController = require('../controllers/user.controller');
-const auth = require('../middleware/auth');
-const validateRequest = require('../middleware/validateRequest');
-const { 
-    registerSchema, 
-    loginSchema, 
-    updateProfileSchema, 
-    changePasswordSchema 
-} = require('../validation/user.schema');
+const express = require("express");
+const { authLimiter } = require("../config/rateLimit");
+const userController = require("../controllers/user.controller");
+const auth = require("../middleware/auth");
+const validateRequest = require("../middleware/validateRequest");
+const {
+    registerSchema,
+    loginSchema,
+    updateProfileSchema,
+    changePasswordSchema,
+} = require("../validation/user.schema");
 
 const router = express.Router();
 
@@ -50,7 +50,12 @@ const router = express.Router();
  *       409:
  *         description: Email déjà utilisé
  */
-router.post('/register', authLimiter, validateRequest(registerSchema), userController.register);
+router.post(
+    "/register",
+    authLimiter,
+    validateRequest(registerSchema),
+    userController.register
+);
 
 /**
  * @swagger
@@ -90,7 +95,12 @@ router.post('/register', authLimiter, validateRequest(registerSchema), userContr
  *       401:
  *         description: Email ou mot de passe incorrect
  */
-router.post('/login', authLimiter, validateRequest(loginSchema), userController.login);
+router.post(
+    "/login",
+    authLimiter,
+    validateRequest(loginSchema),
+    userController.login
+);
 
 /**
  * @swagger
@@ -108,7 +118,7 @@ router.post('/login', authLimiter, validateRequest(loginSchema), userController.
  *       401:
  *         description: Non authentifié
  */
-router.get('/profile', auth, userController.getProfile);
+router.get("/profile", auth, userController.getProfile);
 
 /**
  * @swagger
@@ -142,11 +152,21 @@ router.get('/profile', auth, userController.getProfile);
  *       401:
  *         description: Non authentifié
  */
-router.put('/profile', auth, validateRequest(updateProfileSchema), userController.updateProfile);
+router.put(
+    "/profile",
+    auth,
+    validateRequest(updateProfileSchema),
+    userController.updateProfile
+);
 
 // Routes protégées avec validation
-router.put('/password', auth, validateRequest(changePasswordSchema), userController.changePassword);
-router.put('/privacy', auth, userController.updatePrivacySettings);
-router.delete('/account', auth, userController.deleteAccount);
+router.put(
+    "/password",
+    auth,
+    validateRequest(changePasswordSchema),
+    userController.changePassword
+);
+router.put("/privacy", auth, userController.updatePrivacySettings);
+router.delete("/account", auth, userController.deleteAccount);
 
-module.exports = router; 
+module.exports = router;

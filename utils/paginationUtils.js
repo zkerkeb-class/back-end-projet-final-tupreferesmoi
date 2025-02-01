@@ -10,11 +10,11 @@ const formatPaginatedResponse = (data, totalItems, req) => {
             totalItems,
             totalPages,
             hasNextPage: page < totalPages,
-            hasPreviousPage: page > 1
-        }
+            hasPreviousPage: page > 1,
+        },
     };
 };
 
 module.exports = {
-    formatPaginatedResponse
-}; 
+    formatPaginatedResponse,
+};

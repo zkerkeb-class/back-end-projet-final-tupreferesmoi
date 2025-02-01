@@ -20,7 +20,7 @@ const paginationMiddleware = (req, res, next) => {
     let sort = {};
     if (req.query.sortBy) {
         const sortField = req.query.sortBy;
-        const sortOrder = req.query.order === 'desc' ? -1 : 1;
+        const sortOrder = req.query.order === "desc" ? -1 : 1;
         sort[sortField] = sortOrder;
     }
 
@@ -29,10 +29,10 @@ const paginationMiddleware = (req, res, next) => {
         page,
         limit,
         skip,
-        sort
+        sort,
     };
 
     next();
 };
 
-module.exports = paginationMiddleware; 
+module.exports = paginationMiddleware;

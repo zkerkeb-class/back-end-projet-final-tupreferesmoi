@@ -66,11 +66,54 @@ const findAll = async (req, res) => {
             Artist.countDocuments(query),
         ]);
 
+        const artistsWithUrls = await Promise.all(
+            artists.map(async (artist) => {
+                try {
+                    let imageUrl = DEFAULT_IMAGE;
+
+                    // Si l'artiste a des images configurées, essayer de générer une URL signée
+                    if (artist.image) {
+                        const selectedImage =
+                            artist.image.medium ||
+                            artist.image.large ||
+                            artist.image.thumbnail;
+                        if (selectedImage) {
+                            const signedUrl = await getSignedUrl(selectedImage);
+                            if (signedUrl) {
+                                imageUrl = signedUrl;
+                            }
+                        }
+                    }
+
+                    return {
+                        id: artist._id,
+                        name: artist.name,
+                        imageUrl: imageUrl,
+                        genres: artist.genres || [],
+                        popularity: artist.popularity || 0
+                    };
+                } catch (error) {
+                    console.error(
+                        "Erreur lors du traitement de l'artiste:",
+                        artist.name,
+                        error
+                    );
+                    return {
+                        id: artist._id,
+                        name: artist.name,
+                        imageUrl: DEFAULT_IMAGE,
+                        genres: artist.genres || [],
+                        popularity: artist.popularity || 0
+                    };
+                }
+            })
+        );
+
         const totalPages = Math.ceil(total / limit);
 
         res.status(200).json({
             success: true,
-            data: artists,
+            data: artistsWithUrls,
             pagination: {
                 currentPage: page,
                 itemsPerPage: limit,

@@ -22,7 +22,6 @@ const getSignedUrl = async (imageUrl) => {
         if (urlParts.length !== 2) return null;
 
         const key = urlParts[1];
-        console.log("Génération URL signée pour la clé:", key);
 
         // Générer une URL signée valide pendant 1 heure
         const signedUrl = await s3.getSignedUrlPromise("getObject", {
@@ -33,7 +32,6 @@ const getSignedUrl = async (imageUrl) => {
 
         return signedUrl;
     } catch (error) {
-        console.error("Erreur lors de la génération de l'URL signée:", error);
         return null;
     }
 };
@@ -44,12 +42,12 @@ const findAll = async (req, res) => {
         const { page, limit, skip, sort } = req.pagination;
         const query = {};
 
-        // Filtre par artistId
+        // Filtre par artistId si spécifié
         if (req.query.artistId) {
             query.artistId = req.query.artistId;
         }
 
-        // Filtre par type (album, single, ep)
+        // Filtre par type
         if (req.query.type) {
             query.type = req.query.type;
         }
@@ -59,32 +57,9 @@ const findAll = async (req, res) => {
             query.genres = { $in: [req.query.genre] };
         }
 
-        // Filtre par année de sortie
-        if (req.query.year) {
-            const year = parseInt(req.query.year);
-            query.releaseDate = {
-                $gte: new Date(year, 0, 1),
-                $lt: new Date(year + 1, 0, 1),
-            };
-        }
-
-        // Filtre par plage d'années
-        if (req.query.fromYear || req.query.toYear) {
-            query.releaseDate = {};
-            if (req.query.fromYear) {
-                query.releaseDate.$gte = new Date(
-                    parseInt(req.query.fromYear),
-                    0,
-                    1
-                );
-            }
-            if (req.query.toYear) {
-                query.releaseDate.$lt = new Date(
-                    parseInt(req.query.toYear) + 1,
-                    0,
-                    1
-                );
-            }
+        // Filtre par date de sortie
+        if (req.query.releaseDate) {
+            query.releaseDate = req.query.releaseDate;
         }
 
         const [albums, total] = await Promise.all([
@@ -92,16 +67,57 @@ const findAll = async (req, res) => {
                 .sort(sort)
                 .skip(skip)
                 .limit(limit)
-                .populate("artistId", "name")
-                .populate("featuring", "name"),
+                .populate("artistId", "name"),
             Album.countDocuments(query),
         ]);
+
+        const albumsWithUrls = await Promise.all(
+            albums.map(async (album) => {
+                try {
+                    let imageUrl = DEFAULT_IMAGE;
+
+                    // Si l'album a des images configurées, essayer de générer une URL signée
+                    if (album.coverImage) {
+                        const selectedImage =
+                            album.coverImage.medium ||
+                            album.coverImage.large ||
+                            album.coverImage.thumbnail;
+                        if (selectedImage) {
+                            const signedUrl = await getSignedUrl(selectedImage);
+                            if (signedUrl) {
+                                imageUrl = signedUrl;
+                            }
+                        }
+                    }
+
+                    return {
+                        id: album._id,
+                        title: album.title || "Album Inconnu",
+                        artist: album.artistId?.name || "Artiste inconnu",
+                        coverUrl: imageUrl,
+                        year: album.releaseDate
+                            ? new Date(album.releaseDate).getFullYear()
+                            : null,
+                    };
+                } catch (error) {
+                    return {
+                        id: album._id,
+                        title: album.title || "Album Inconnu",
+                        artist: album.artistId?.name || "Artiste inconnu",
+                        coverUrl: DEFAULT_IMAGE,
+                        year: album.releaseDate
+                            ? new Date(album.releaseDate).getFullYear()
+                            : null,
+                    };
+                }
+            })
+        );
 
         const totalPages = Math.ceil(total / limit);
 
         res.status(200).json({
             success: true,
-            data: albums,
+            data: albumsWithUrls,
             pagination: {
                 currentPage: page,
                 itemsPerPage: limit,
@@ -304,11 +320,6 @@ const getRecent = async (req, res) => {
                             : null,
                     };
                 } catch (error) {
-                    console.error(
-                        "Erreur lors du traitement de l'album:",
-                        album.title,
-                        error
-                    );
                     return {
                         id: album._id,
                         title: album.title || "Album Inconnu",

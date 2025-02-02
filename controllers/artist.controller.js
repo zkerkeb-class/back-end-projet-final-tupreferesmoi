@@ -334,21 +334,43 @@ const getTopTracks = async (req, res) => {
         }
 
         // Récupérer les titres les plus populaires de l'artiste
-        const topTracks = await Track.find({ artist: artistId })
+        const topTracks = await Track.find({ artistId: artistId })
             .sort({ popularity: -1 })
             .limit(10)
-            .populate("album")
+            .populate("albumId")
             .lean();
 
-        // Enrichir les données des titres
-        const enrichedTracks = topTracks.map((track) => ({
-            id: track._id,
-            title: track.title,
-            duration: track.duration,
-            plays: Math.floor(Math.random() * 1000000) + 10000, // Nombre de lectures simulé
-            albumTitle: track.album?.title || "Single",
-            albumImage: track.album?.image || "https://via.placeholder.com/64",
-            explicit: track.explicit || false,
+        // Enrichir les données des titres avec les URLs signées
+        const enrichedTracks = await Promise.all(topTracks.map(async (track) => {
+            let coverUrl = null;
+            let audioUrl = null;
+
+            // Générer URL signée pour la couverture de l'album
+            if (track.albumId?.coverImage) {
+                const selectedImage = 
+                    track.albumId.coverImage.medium ||
+                    track.albumId.coverImage.large ||
+                    track.albumId.coverImage.thumbnail;
+                if (selectedImage) {
+                    coverUrl = await getSignedUrl(selectedImage);
+                }
+            }
+
+            // Générer URL signée pour l'audio
+            if (track.audioUrl) {
+                audioUrl = await getSignedUrl(track.audioUrl);
+            }
+
+            return {
+                id: track._id,
+                title: track.title,
+                duration: track.duration,
+                plays: Math.floor(Math.random() * 1000000) + 10000, // Nombre de lectures simulé
+                albumTitle: track.albumId?.title || "Single",
+                coverUrl: coverUrl || DEFAULT_IMAGE,
+                audioUrl: audioUrl,
+                explicit: track.explicit || false,
+            };
         }));
 
         res.json({

@@ -322,12 +322,14 @@ const deleteTrack = async (req, res) => {
 // Rechercher des pistes
 const search = async (req, res) => {
     try {
+        const searchValue = req.params.value;
+        console.log(searchValue);
         const { query } = req.query;
         const tracks = await Track.find({
             $or: [
-                { title: { $regex: query, $options: "i" } },
-                { lyrics: { $regex: query, $options: "i" } },
-            ],
+                { title: { $regex: searchValue, $options: 'i' } },
+                // { lyrics: { $regex: query.params.string, $options: 'i' } }
+            ]
         })
             .populate("albumId", "title artistId")
             .populate("featuring", "name")

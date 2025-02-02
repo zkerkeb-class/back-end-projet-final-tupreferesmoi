@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Playlist = require("../models/playlist.model");
+const Track = require("../models/track.model");
 
 // Récupérer toutes les playlists avec pagination
 const findAll = async (req, res) => {
@@ -15,13 +16,22 @@ const findAll = async (req, res) => {
             query.userId = req.query.userId;
 
             // Si l'utilisateur est connecté et demande ses propres playlists
-            if (req.user && req.user.id === req.query.userId) {
+            console.log("Comparing user IDs:", {
+                requestUserId: req.query.userId,
+                authenticatedUserId: req.user?.id,
+                authenticatedUserIdStr: req.user?._id?.toString(),
+                requestUserIdStr: req.query.userId.toString()
+            });
+
+            if (req.user && (req.user.id === req.query.userId || req.user._id.toString() === req.query.userId)) {
                 // Ne pas filtrer sur isPublic pour voir toutes ses playlists
-                console.log('Utilisateur demande ses propres playlists');
+                console.log("Utilisateur demande ses propres playlists");
+                // Explicitly remove isPublic filter if it exists
+                delete query.isPublic;
             } else {
                 // Pour les autres utilisateurs, ne montrer que les playlists publiques
                 query.isPublic = true;
-                console.log('Utilisateur demande les playlists d\'un autre utilisateur');
+                console.log("Utilisateur demande les playlists d'un autre utilisateur");
             }
         } else {
             // Si aucun userId n'est spécifié, ne montrer que les playlists publiques
@@ -53,6 +63,7 @@ const findAll = async (req, res) => {
             Playlist.countDocuments(query),
         ]);
 
+        console.log('Playlists avant formatage:', JSON.stringify(playlists, null, 2));
         console.log('Nombre de playlists trouvées:', playlists.length);
         console.log('Playlists trouvées après filtres:', playlists);
         console.log('Nombre total de playlists:', total);
@@ -143,9 +154,15 @@ const findOne = async (req, res) => {
         }
 
         // Vérifier si l'utilisateur a le droit de voir cette playlist
+        console.log("Playlist access check:", {
+            playlistUserId: playlist.userId._id.toString(),
+            requestUserId: req.user?.id,
+            isPublic: playlist.isPublic
+        });
+
         if (
             !playlist.isPublic &&
-            (!req.user || playlist.userId.toString() !== req.user.id)
+            (!req.user || playlist.userId._id.toString() !== req.user.id)
         ) {
             return res.status(403).json({
                 success: false,
@@ -333,10 +350,43 @@ const addTrack = async (req, res) => {
         }
 
         const trackId = req.body.trackId;
-        if (playlist.tracks.includes(trackId)) {
+        
+        // Validate trackId
+        if (!trackId) {
+            return res.status(400).json({
+                success: false,
+                message: "L'identifiant de la piste est requis",
+            });
+        }
+
+        // Ensure tracks array exists
+        if (!Array.isArray(playlist.tracks)) {
+            playlist.tracks = [];
+        }
+
+        // Convert trackId to string and check if any track in the playlist matches
+        const isTrackInPlaylist = playlist.tracks.some(existingTrackId => 
+            existingTrackId && trackId && 
+            existingTrackId.toString() === trackId.toString()
+        );
+        
+        if (isTrackInPlaylist) {
             return res.status(400).json({
                 success: false,
                 message: "Cette piste est déjà dans la playlist",
+                playlistId: playlist._id,
+                trackId: trackId
+            });
+        }
+
+        // Verify if the track exists in the database before adding it
+        const track = await Track.findById(trackId);
+        
+        if (!track) {
+            return res.status(404).json({
+                success: false,
+                message: "La piste n'existe pas",
+                trackId: trackId
             });
         }
 
@@ -347,16 +397,28 @@ const addTrack = async (req, res) => {
             .populate("userId", "username")
             .populate({
                 path: "tracks",
-                select: "title duration artistId",
-                populate: {
-                    path: "artistId",
-                    select: "name",
-                },
+                select: "title duration artistId albumId audioUrl",
+                populate: [
+                    {
+                        path: "artistId",
+                        select: "name"
+                    },
+                    {
+                        path: "albumId",
+                        select: "title coverImage"
+                    }
+                ]
             });
+
+        // Get the added track details for the success message
+        const addedTrack = updatedPlaylist.tracks.find(t => t._id.toString() === trackId);
 
         res.status(200).json({
             success: true,
+            message: `${addedTrack?.title || 'La piste'} a été ajoutée à la playlist ${playlist.name}`,
             data: updatedPlaylist,
+            playlistId: playlist._id,
+            trackId: trackId
         });
     } catch (error) {
         res.status(400).json({

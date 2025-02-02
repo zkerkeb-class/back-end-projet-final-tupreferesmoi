@@ -54,7 +54,7 @@ const paginationMiddleware = require("../middleware/pagination");
  *       500:
  *         description: Erreur serveur
  */
-router.get("/", paginationMiddleware, playlistController.findAll);
+router.get("/", auth, paginationMiddleware, playlistController.findAll);
 
 /**
  * @swagger

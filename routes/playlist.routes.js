@@ -75,7 +75,7 @@ router.get("/", auth, paginationMiddleware, playlistController.findAll);
  *       404:
  *         description: Playlist non trouvée
  */
-router.get("/:id", playlistController.findOne);
+router.get("/:id", auth, playlistController.findOne);
 
 /**
  * @swagger

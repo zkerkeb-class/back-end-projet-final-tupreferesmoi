@@ -45,6 +45,6 @@ app.use('/api/tracks', trackRoutes);
 app.use('/api/albums', albumRoutes);
 app.use('/api/artists', artistRoutes);
 app.use('/api/playlists', playlistRoutes);
-app.use('/api/globalSearchs', searchRoutes);
+app.use('/api/search', searchRoutes);
 
 module.exports = app;

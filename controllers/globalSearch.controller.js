@@ -7,7 +7,7 @@ const Album = require('../models/album.model');
 // Rechercher Pistes/ Artist /Album
 const globalSearch = async (req, res) => {
     try {
-        const searchValue = req.params.value;
+        const searchValue = req.query.q;
         if (!searchValue || searchValue.length < 2) {
             return res.status(200).json({
                 success: true,

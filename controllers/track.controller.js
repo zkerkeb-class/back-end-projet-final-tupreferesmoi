@@ -20,12 +20,10 @@ const getSignedUrl = async (url) => {
         // Extraire la clé de l'URL complète
         const urlParts = url.split(".amazonaws.com/");
         if (urlParts.length !== 2) {
-            console.log("URL invalide:", url);
             return null;
         }
 
         const key = decodeURIComponent(urlParts[1]);
-        console.log("Génération URL signée pour la clé:", key);
 
         // Générer une URL signée valide pendant 1 heure
         const signedUrl = await s3.getSignedUrlPromise("getObject", {
@@ -35,7 +33,6 @@ const getSignedUrl = async (url) => {
             ResponseContentDisposition: "inline",
         });
 
-        console.log("URL signée générée avec succès");
         return signedUrl;
     } catch (error) {
         console.error("Erreur lors de la génération de l'URL signée:", error);
@@ -208,11 +205,9 @@ const findOne = async (req, res) => {
 
         // Signer l'URL audio
         if (track.audioUrl) {
-            console.log("URL audio originale:", track.audioUrl);
             const signedAudioUrl = await getSignedUrl(track.audioUrl);
             if (signedAudioUrl) {
                 audioUrl = signedAudioUrl;
-                console.log("URL audio signée générée");
             }
         }
 
@@ -323,7 +318,6 @@ const deleteTrack = async (req, res) => {
 const search = async (req, res) => {
     try {
         const searchValue = req.params.value;
-        console.log(searchValue);
         const { query } = req.query;
         const tracks = await Track.find({
             $or: [
@@ -379,19 +373,15 @@ const updatePopularity = async (req, res) => {
 
 const getRecent = async (req, res) => {
     try {
-        console.log("Récupération des pistes récentes...");
         const recentTracks = await Track.find()
             .sort({ createdAt: -1 })
             .limit(10)
             .populate("artistId", "name")
             .populate("albumId", "coverImage");
 
-        console.log("Nombre de pistes trouvées:", recentTracks.length);
-
         const tracksWithUrls = await Promise.all(
             recentTracks.map(async (track) => {
                 try {
-                    console.log("\nTraitement de la piste:", track.title);
                     let imageUrl = DEFAULT_IMAGE;
                     let audioUrl = null;
 
@@ -403,19 +393,16 @@ const getRecent = async (req, res) => {
                             track.albumId.coverImage.thumbnail;
 
                         if (selectedImage) {
-                            console.log("URL image originale:", selectedImage);
                             const signedImageUrl =
                                 await getSignedUrl(selectedImage);
                             if (signedImageUrl) {
                                 imageUrl = signedImageUrl;
-                                console.log("URL image signée générée");
                             }
                         }
                     }
 
                     // Signer l'URL audio
                     if (track.audioUrl) {
-                        console.log("URL audio originale:", track.audioUrl);
                         const signedAudioUrl = await getSignedUrl(
                             track.audioUrl
                         );
@@ -442,7 +429,6 @@ const getRecent = async (req, res) => {
                         duration: track.duration,
                         audioUrl: audioUrl,
                     };
-                    console.log("Données de piste préparées:", trackData);
                     return trackData;
                 } catch (error) {
                     console.error(
@@ -462,11 +448,6 @@ const getRecent = async (req, res) => {
             })
         );
 
-        console.log(
-            "\nEnvoi de la réponse avec",
-            tracksWithUrls.length,
-            "pistes"
-        );
         res.json(tracksWithUrls);
     } catch (error) {
         console.error("Erreur dans getRecent:", error);

@@ -21,7 +21,6 @@ const getSignedUrl = async (url) => {
         if (urlParts.length !== 2) return null;
 
         const key = urlParts[1];
-        console.log("Génération URL signée pour la clé:", key);
 
         // Générer une URL signée valide pendant 1 heure
         const signedUrl = await s3.getSignedUrlPromise("getObject", {
@@ -43,37 +42,22 @@ const findAll = async (req, res) => {
         const { page, limit, skip, sort } = req.pagination;
         const query = {};
 
-        console.log('User from request:', req.user);
-        console.log('Query params:', req.query);
-
         // Si un userId est spécifié
         if (req.query.userId) {
             query.userId = req.query.userId;
 
-            // Si l'utilisateur est connecté et demande ses propres playlists
-            console.log("Comparing user IDs:", {
-                requestUserId: req.query.userId,
-                authenticatedUserId: req.user?.id,
-                authenticatedUserIdStr: req.user?._id?.toString(),
-                requestUserIdStr: req.query.userId.toString()
-            });
-
             if (req.user && (req.user.id === req.query.userId || req.user._id.toString() === req.query.userId)) {
                 // Ne pas filtrer sur isPublic pour voir toutes ses playlists
-                console.log("Utilisateur demande ses propres playlists");
                 // Explicitly remove isPublic filter if it exists
                 delete query.isPublic;
             } else {
                 // Pour les autres utilisateurs, ne montrer que les playlists publiques
                 query.isPublic = true;
-                console.log("Utilisateur demande les playlists d'un autre utilisateur");
             }
         } else {
             // Si aucun userId n'est spécifié, ne montrer que les playlists publiques
             query.isPublic = true;
         }
-
-        console.log('Query finale MongoDB:', query);
 
         const [playlists, total] = await Promise.all([
             Playlist.find(query)
@@ -97,11 +81,6 @@ const findAll = async (req, res) => {
                 }),
             Playlist.countDocuments(query),
         ]);
-
-        console.log('Playlists avant formatage:', JSON.stringify(playlists, null, 2));
-        console.log('Nombre de playlists trouvées:', playlists.length);
-        console.log('Playlists trouvées après filtres:', playlists);
-        console.log('Nombre total de playlists:', total);
 
         // Formater les playlists
         const formattedPlaylists = playlists.map(playlist => {
@@ -187,13 +166,6 @@ const findOne = async (req, res) => {
                 message: "Playlist non trouvée",
             });
         }
-
-        // Vérifier si l'utilisateur a le droit de voir cette playlist
-        console.log("Playlist access check:", {
-            playlistUserId: playlist.userId._id.toString(),
-            requestUserId: req.user?.id,
-            isPublic: playlist.isPublic
-        });
 
         if (
             !playlist.isPublic &&

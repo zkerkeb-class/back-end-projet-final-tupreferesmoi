@@ -20,7 +20,6 @@ const getSignedUrl = async (imageUrl) => {
         if (urlParts.length !== 2) return null;
 
         const key = urlParts[1];
-        console.log("Génération URL signée pour la clé:", key);
 
         // Générer une URL signée valide pendant 1 heure
         const signedUrl = await s3.getSignedUrlPromise("getObject", {

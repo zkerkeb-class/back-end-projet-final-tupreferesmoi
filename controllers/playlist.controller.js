@@ -1,6 +1,41 @@
 const mongoose = require('mongoose');
 const Playlist = require("../models/playlist.model");
 const Track = require("../models/track.model");
+const AWS = require("aws-sdk");
+const { DEFAULT_IMAGE } = require("../constants");
+
+// Configuration AWS avec les credentials et la région
+const s3 = new AWS.S3({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION,
+    signatureVersion: "v4",
+});
+
+const getSignedUrl = async (url) => {
+    if (!url) return null;
+
+    try {
+        // Extraire la clé de l'URL complète
+        const urlParts = url.split(".amazonaws.com/");
+        if (urlParts.length !== 2) return null;
+
+        const key = urlParts[1];
+        console.log("Génération URL signée pour la clé:", key);
+
+        // Générer une URL signée valide pendant 1 heure
+        const signedUrl = await s3.getSignedUrlPromise("getObject", {
+            Bucket: process.env.AWS_BUCKET_NAME,
+            Key: key,
+            Expires: 3600,
+        });
+
+        return signedUrl;
+    } catch (error) {
+        console.error("Erreur lors de la génération de l'URL signée:", error);
+        return null;
+    }
+};
 
 // Récupérer toutes les playlists avec pagination
 const findAll = async (req, res) => {
@@ -181,22 +216,45 @@ const findOne = async (req, res) => {
         await playlist.save();
 
         // Formater les données des pistes pour inclure toutes les informations nécessaires
-        const formattedTracks = playlist.tracks.map(track => ({
-            _id: track._id,
-            id: track._id, // Pour la compatibilité avec le frontend
-            title: track.title,
-            duration: track.duration,
-            audioUrl: track.audioUrl,
-            artist: track.artistId?.name || "Artiste inconnu",
-            artistId: {
-                _id: track.artistId?._id,
-                name: track.artistId?.name
-            },
-            albumId: {
-                _id: track.albumId?._id,
-                title: track.albumId?.title,
-                coverImage: track.albumId?.coverImage
+        const formattedTracks = await Promise.all(playlist.tracks.map(async track => {
+            // Générer les URLs signées pour l'audio et l'image
+            const audioUrl = track.audioUrl ? await getSignedUrl(track.audioUrl) : null;
+            let coverUrl = DEFAULT_IMAGE;
+
+            if (track.albumId?.coverImage) {
+                const selectedImage =
+                    track.albumId.coverImage.medium ||
+                    track.albumId.coverImage.large ||
+                    track.albumId.coverImage.thumbnail;
+                if (selectedImage) {
+                    const signedImageUrl = await getSignedUrl(selectedImage);
+                    if (signedImageUrl) {
+                        coverUrl = signedImageUrl;
+                    }
+                }
             }
+
+            return {
+                _id: track._id,
+                id: track._id,
+                title: track.title,
+                duration: track.duration,
+                audioUrl: audioUrl,
+                artist: track.artistId?.name || "Artiste inconnu",
+                artistId: {
+                    _id: track.artistId?._id,
+                    name: track.artistId?.name
+                },
+                albumId: {
+                    _id: track.albumId?._id,
+                    title: track.albumId?.title,
+                    coverImage: {
+                        medium: coverUrl,
+                        large: coverUrl,
+                        thumbnail: coverUrl
+                    }
+                }
+            };
         }));
 
         // Créer un objet formaté de la playlist

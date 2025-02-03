@@ -13,11 +13,9 @@ const generateToken = (user) => {
 exports.register = async (req, res) => {
     try {
         const { email, password, username } = req.body;
-        console.log("Tentative d'inscription:", { email, username });
 
         // Validation du mot de passe
         if (!validatePassword(password)) {
-            console.log("Échec de la validation du mot de passe");
             return res.status(400).json({
                 message:
                     "Le mot de passe doit contenir au moins 8 caractères, une lettre et un chiffre ou caractère spécial",
@@ -29,7 +27,6 @@ exports.register = async (req, res) => {
             $or: [{ email }, { username }],
         });
         if (existingUser) {
-            console.log("Utilisateur existant:", existingUser.email);
             return res.status(400).json({
                 message:
                     "Un utilisateur avec cet email ou ce nom d'utilisateur existe déjà",
@@ -39,7 +36,6 @@ exports.register = async (req, res) => {
         // Création du nouvel utilisateur
         const user = new User({ email, password, username });
         await user.save();
-        console.log("Nouvel utilisateur créé:", user.email);
 
         // Génération du token
         const token = generateToken(user);
@@ -65,7 +61,6 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
     try {
         const { email: emailOrUsername, password } = req.body;
-        console.log("Tentative de connexion:", { emailOrUsername });
 
         // Recherche de l'utilisateur par email ou nom d'utilisateur
         const user = await User.findOne({
@@ -76,7 +71,6 @@ exports.login = async (req, res) => {
         });
 
         if (!user) {
-            console.log("Utilisateur non trouvé");
             return res
                 .status(401)
                 .json({ message: "Email ou mot de passe incorrect" });
@@ -85,13 +79,11 @@ exports.login = async (req, res) => {
         // Vérification du mot de passe
         const isValidPassword = await user.comparePassword(password);
         if (!isValidPassword) {
-            console.log("Mot de passe invalide pour:", user.email);
             return res
                 .status(401)
                 .json({ message: "Email ou mot de passe incorrect" });
         }
 
-        console.log("Connexion réussie pour:", user.email);
 
         // Génération du token
         const token = generateToken(user);

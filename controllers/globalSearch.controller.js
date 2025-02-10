@@ -1,6 +1,7 @@
 const Track = require('../models/track.model');
 const Artist = require('../models/artist.model');
 const Album = require('../models/album.model');
+const Playlist = require('../models/playlist.model');
 const AWS = require('aws-sdk');
 
 // Configuration AWS avec les credentials et la région
@@ -46,13 +47,14 @@ const globalSearch = async (req, res) => {
                     tracks: [],
                     artists: [],
                     albums: [],
+                    playlists: []
                 }
             });
         }
 
         const searchRegex = new RegExp(searchValue, 'i');
         
-        const [tracks, artists, albums] = await Promise.all([
+        const [tracks, artists, albums, playlists] = await Promise.all([
             // Track search
             Track.find({
                 $or: [
@@ -83,6 +85,18 @@ const globalSearch = async (req, res) => {
             })
             .populate('artistId', 'name')
             .sort({ releaseDate: -1 })
+            .limit(3),
+
+            // Playlist search (public only)
+            Playlist.find({
+                isPublic: true,
+                $or: [
+                    { name: { $regex: searchRegex } },
+                    { description: { $regex: searchRegex } }
+                ]
+            })
+            .populate('userId', 'username')
+            .sort({ updatedAt: -1 })
             .limit(3)
         ]);
 
@@ -128,12 +142,27 @@ const globalSearch = async (req, res) => {
             return albumObj;
         }));
 
+        // Process playlists to include signed URLs
+        const processedPlaylists = await Promise.all(playlists.map(async playlist => {
+            const playlistObj = playlist.toObject();
+            if (playlistObj.coverImage) {
+                const signedCoverImage = {
+                    thumbnail: await getSignedUrl(playlistObj.coverImage.thumbnail),
+                    medium: await getSignedUrl(playlistObj.coverImage.medium),
+                    large: await getSignedUrl(playlistObj.coverImage.large)
+                };
+                playlistObj.coverImage = signedCoverImage;
+            }
+            return playlistObj;
+        }));
+
         res.status(200).json({ 
             success: true,
             data: {
                 tracks: processedTracks,
                 artists: processedArtists,
-                albums: processedAlbums
+                albums: processedAlbums,
+                playlists: processedPlaylists
             }
         });
     } catch (error) {

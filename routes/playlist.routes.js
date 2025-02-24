@@ -58,6 +58,33 @@ router.get("/", auth, paginationMiddleware, playlistController.findAll);
 
 /**
  * @swagger
+ * /api/playlists/public:
+ *   get:
+ *     summary: Récupérer toutes les playlists publiques avec pagination
+ *     tags: [Playlists]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Numéro de la page
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Nombre d'éléments par page
+ *     responses:
+ *       200:
+ *         description: Liste des playlists publiques paginée
+ *       500:
+ *         description: Erreur serveur
+ */
+router.get("/public", paginationMiddleware, playlistController.findAll);
+
+/**
+ * @swagger
  * /api/playlists/{id}:
  *   get:
  *     summary: Récupérer une playlist par ID

@@ -95,6 +95,8 @@ const findAll = async (req, res) => {
                         title: album.title || "Album Inconnu",
                         artist: album.artistId?.name || "Artiste inconnu",
                         coverUrl: imageUrl,
+                        trackCount: album.trackCount || 0,
+                        releaseDate: album.releaseDate,
                         year: album.releaseDate
                             ? new Date(album.releaseDate).getFullYear()
                             : null,
@@ -105,6 +107,8 @@ const findAll = async (req, res) => {
                         title: album.title || "Album Inconnu",
                         artist: album.artistId?.name || "Artiste inconnu",
                         coverUrl: DEFAULT_IMAGE,
+                        trackCount: album.trackCount || 0,
+                        releaseDate: album.releaseDate,
                         year: album.releaseDate
                             ? new Date(album.releaseDate).getFullYear()
                             : null,
@@ -315,6 +319,8 @@ const getRecent = async (req, res) => {
                         title: album.title || "Album Inconnu",
                         artist: album.artistId?.name || "Artiste inconnu",
                         coverUrl: imageUrl,
+                        trackCount: album.trackCount || 0,
+                        releaseDate: album.releaseDate,
                         year: album.releaseDate
                             ? new Date(album.releaseDate).getFullYear()
                             : null,
@@ -325,6 +331,8 @@ const getRecent = async (req, res) => {
                         title: album.title || "Album Inconnu",
                         artist: album.artistId?.name || "Artiste inconnu",
                         coverUrl: DEFAULT_IMAGE,
+                        trackCount: album.trackCount || 0,
+                        releaseDate: album.releaseDate,
                         year: album.releaseDate
                             ? new Date(album.releaseDate).getFullYear()
                             : null,

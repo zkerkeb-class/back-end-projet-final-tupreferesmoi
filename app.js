@@ -13,6 +13,7 @@ const playlistRoutes = require('./routes/playlist.routes');
 const authRoutes = require('./routes/auth.routes');
 const searchRoutes = require('./routes/globalSearch.routes');
 const cacheService = require('./services/cache.service');
+const uploadRoutes = require('./routes/upload.routes');
 
 const app = express();
 
@@ -46,5 +47,6 @@ app.use('/api/albums', albumRoutes);
 app.use('/api/artists', artistRoutes);
 app.use('/api/playlists', playlistRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/upload', uploadRoutes);
 
 module.exports = app;

@@ -120,6 +120,8 @@ router.post(
  */
 router.get("/profile", auth, userController.getProfile);
 
+router.get("/", userController.findAll);
+
 /**
  * @swagger
  * /api/users/profile:

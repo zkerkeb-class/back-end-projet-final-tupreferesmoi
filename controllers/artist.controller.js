@@ -2,6 +2,7 @@ const Artist = require("../models/artist.model");
 const { formatPaginatedResponse } = require("../utils/pagination");
 const AWS = require("aws-sdk");
 const Track = require("../models/track.model");
+const cacheService = require("../services/cache.service");
 
 // Configuration AWS avec les credentials et la région
 const s3 = new AWS.S3({
@@ -10,6 +11,25 @@ const s3 = new AWS.S3({
     region: process.env.AWS_REGION,
     signatureVersion: "v4",
 });
+
+// Liste des clés de cache liées aux artistes
+const ARTIST_CACHE_KEYS = [
+    "artists-list",
+    "artists-popular",
+    "artist-search",
+    "artist-detail",
+    "artist-top-tracks",
+    "global-search"
+];
+
+// Fonction utilitaire pour invalider le cache des artistes
+const invalidateArtistCache = async () => {
+    try {
+        await cacheService.flush(); // On vide tout le cache pour être sûr
+    } catch (error) {
+        console.error("Erreur lors de l'invalidation du cache des artistes:", error);
+    }
+};
 
 const getSignedUrl = async (imageUrl) => {
     if (!imageUrl) return null;
@@ -173,6 +193,7 @@ const create = async (req, res) => {
     try {
         const artist = new Artist(req.body);
         const newArtist = await artist.save();
+        await invalidateArtistCache();
         res.status(201).json({
             success: true,
             data: newArtist,
@@ -199,6 +220,7 @@ const update = async (req, res) => {
                 message: "Artiste non trouvé",
             });
         }
+        await invalidateArtistCache();
         res.status(200).json({
             success: true,
             data: artist,
@@ -222,6 +244,7 @@ const deleteArtist = async (req, res) => {
                 message: "Artiste non trouvé",
             });
         }
+        await invalidateArtistCache();
         res.status(200).json({
             success: true,
             message: "Artiste supprimé avec succès",

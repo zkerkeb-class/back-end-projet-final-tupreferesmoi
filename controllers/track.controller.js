@@ -1,6 +1,7 @@
 const Track = require("../models/track.model");
 const { formatPaginatedResponse } = require("../utils/pagination");
 const AWS = require("aws-sdk");
+const cacheService = require("../services/cache.service");
 
 // Configuration AWS avec les credentials et la région
 const s3 = new AWS.S3({
@@ -12,6 +13,24 @@ const s3 = new AWS.S3({
 
 const DEFAULT_IMAGE =
     "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMyQTJBMkEiLz48cGF0aCBkPSJNOTAgODBIMTEwQzExNS41MjMgODAgMTIwIDg0LjQ3NzIgMTIwIDkwVjExMEMxMjAgMTE1LjUyMyAxMTUuNTIzIDEyMCAxMTAgMTIwSDkwQzg0LjQ3NzIgMTIwIDgwIDExNS41MjMgODAgMTEwVjkwQzgwIDg0LjQ3NzIgODQuNDc3MiA4MCA5MCA4MFoiIGZpbGw9IiM0MDQwNDAiLz48cGF0aCBkPSJNMTAwIDg1QzEwMi43NjEgODUgMTA1IDg3LjIzODYgMTA1IDkwQzEwNSA5Mi43NjE0IDEwMi43NjEgOTUgMTAwIDk1Qzk3LjIzODYgOTUgOTUgOTIuNzYxNCA5NSA5MEM5NSA4Ny4yMzg2IDk3LjIzODYgODUgMTAwIDg1WiIgZmlsbD0iIzU5NTk1OSIvPjwvc3ZnPg==";
+
+// Liste des clés de cache liées aux pistes
+const TRACK_CACHE_KEYS = [
+    "tracks-list",
+    "tracks-recent",
+    "track-search",
+    "track-detail",
+    "global-search"
+];
+
+// Fonction utilitaire pour invalider le cache des pistes
+const invalidateTrackCache = async () => {
+    try {
+        await cacheService.flush(); // On vide tout le cache pour être sûr
+    } catch (error) {
+        console.error("Erreur lors de l'invalidation du cache des pistes:", error);
+    }
+};
 
 const getSignedUrl = async (url) => {
     if (!url) return null;
@@ -249,6 +268,8 @@ const create = async (req, res) => {
             .populate("albumId", "title")
             .populate("featuring", "name");
 
+        await invalidateTrackCache();
+
         res.status(201).json({
             success: true,
             data: populatedTrack,
@@ -278,6 +299,9 @@ const update = async (req, res) => {
                 message: "Piste non trouvée",
             });
         }
+
+        await invalidateTrackCache();
+
         res.status(200).json({
             success: true,
             data: track,
@@ -301,6 +325,9 @@ const deleteTrack = async (req, res) => {
                 message: "Piste non trouvée",
             });
         }
+
+        await invalidateTrackCache();
+
         res.status(200).json({
             success: true,
             message: "Piste supprimée avec succès",

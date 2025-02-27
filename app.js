@@ -14,6 +14,7 @@ const authRoutes = require('./routes/auth.routes');
 const searchRoutes = require('./routes/globalSearch.routes');
 const cacheService = require('./services/cache.service');
 const uploadRoutes = require('./routes/upload.routes');
+const backofficeRoutes = require('./routes/backoffice.routes');
 
 const app = express();
 
@@ -48,5 +49,6 @@ app.use('/api/artists', artistRoutes);
 app.use('/api/playlists', playlistRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/backoffice', backofficeRoutes);
 
 module.exports = app;

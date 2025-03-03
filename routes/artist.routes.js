@@ -101,7 +101,8 @@ router.get(
     artistController.getPopular
 );
 router.get(
-    "/search/query",
+    "/search",
+    auth,
     cacheMiddleware("artist-search", 600),
     artistController.search
 );

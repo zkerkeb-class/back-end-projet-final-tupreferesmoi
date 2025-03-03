@@ -163,6 +163,9 @@ const findAll = async (req, res) => {
 // Récupérer un album par ID
 const findOne = async (req, res) => {
     try {
+        const Track = require("../models/track.model");
+        
+        // Récupérer l'album
         const album = await Album.findById(req.params.id)
             .populate("artistId", "name")
             .populate("featuring", "name");
@@ -173,6 +176,11 @@ const findOne = async (req, res) => {
                 message: "Album non trouvé",
             });
         }
+
+        // Récupérer les pistes associées
+        const tracks = await Track.find({ albumId: req.params.id })
+            .populate("artistId", "name")
+            .populate("featuring", "name");
 
         // Generate signed URLs for all image sizes
         const signedCoverImage = {
@@ -187,10 +195,11 @@ const findOne = async (req, res) => {
                 : null,
         };
 
-        // Create a new object with signed URLs
+        // Create a new object with signed URLs and tracks
         const albumWithSignedUrls = {
             ...album.toObject(),
             coverImage: signedCoverImage,
+            tracks: tracks // Ajout des pistes
         };
 
         res.status(200).json({

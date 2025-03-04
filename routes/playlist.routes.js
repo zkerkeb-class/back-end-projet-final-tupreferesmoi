@@ -303,4 +303,27 @@ router.delete("/:id/tracks/:trackId", auth, playlistController.removeTrack);
  */
 router.put("/:id/admin", auth, playlistController.updateAdmin);
 
+/**
+ * @swagger
+ * /api/playlists/{id}/admin:
+ *   delete:
+ *     summary: Supprimer une playlist (Admin seulement)
+ *     tags: [Playlists]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la playlist
+ *     responses:
+ *       200:
+ *         description: Playlist supprimée
+ *       404:
+ *         description: Playlist non trouvée
+ */
+router.delete("/:id/admin", auth, playlistController.deletePlaylistAdmin);
+
 module.exports = router;

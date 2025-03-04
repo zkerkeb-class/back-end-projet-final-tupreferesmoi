@@ -411,6 +411,41 @@ const deletePlaylist = async (req, res) => {
     }
 };
 
+// Supprimer une playlist (Admin)
+const deletePlaylistAdmin = async (req, res) => {
+    try {
+        const playlist = await Playlist.findById(req.params.id);
+
+        if (!playlist) {
+            return res.status(404).json({
+                success: false,
+                message: "Playlist non trouvée"
+            });
+        }
+
+        // Vérifier que la playlist est publique
+        if (!playlist.isPublic) {
+            return res.status(403).json({
+                success: false,
+                message: "Les administrateurs ne peuvent supprimer que les playlists publiques"
+            });
+        }
+
+        await Playlist.findByIdAndDelete(req.params.id);
+
+        res.status(200).json({
+            success: true,
+            message: "Playlist supprimée avec succès"
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Erreur lors de la suppression de la playlist",
+            error: error.message
+        });
+    }
+};
+
 // Ajouter une piste à la playlist
 const addTrack = async (req, res) => {
     try {
@@ -567,6 +602,7 @@ module.exports = {
     update,
     updateAdmin,
     deletePlaylist,
+    deletePlaylistAdmin,
     addTrack,
     removeTrack,
 };

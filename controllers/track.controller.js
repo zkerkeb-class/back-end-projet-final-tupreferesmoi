@@ -2,6 +2,7 @@ const Track = require("../models/track.model");
 const { formatPaginatedResponse } = require("../utils/pagination");
 const AWS = require("aws-sdk");
 const cacheService = require("../services/cache.service");
+const Artist = require("../models/artist.model");
 
 // Configuration AWS avec les credentials et la région
 const s3 = new AWS.S3({
@@ -108,12 +109,19 @@ const findAll = async (req, res) => {
                     path: "albumId",
                     select: "title coverImage type releaseDate artistId",
                     populate: { path: "artistId", select: "name" },
-                }),
+                })
+                .populate("featuring", "name"),
             Track.countDocuments(query),
         ]);
 
+        console.log("Tracks après populate:", JSON.stringify(tracks, null, 2));
+
         const processTrack = async (track) => {
             try {
+                console.log("Processing track:", track.title);
+                console.log("Artist data:", track.artistId);
+                console.log("Album data:", track.albumId);
+
                 let imageUrl = DEFAULT_IMAGE;
                 let audioUrl = null;
 
@@ -138,28 +146,47 @@ const findAll = async (req, res) => {
                     }
                 }
 
-                return {
+                const processedTrack = {
                     id: track._id,
                     title: track.title,
-                    artist: track.artistId?.name || "Artiste inconnu",
-                    album: {
-                        id: track.albumId?._id,
-                        title: track.albumId?.title || "Album inconnu",
-                        type: track.albumId?.type || "single",
-                        releaseDate: track.albumId?.releaseDate,
-                        artist: track.albumId?.artistId?.name,
-                    },
+                    artist: track.artistId ? {
+                        id: track.artistId._id,
+                        name: track.artistId.name
+                    } : null,
+                    album: track.albumId ? {
+                        id: track.albumId._id,
+                        title: track.albumId.title || "Album inconnu",
+                        type: track.albumId.type || "single",
+                        releaseDate: track.albumId.releaseDate,
+                        artist: track.albumId.artistId ? {
+                            id: track.albumId.artistId._id,
+                            name: track.albumId.artistId.name
+                        } : null
+                    } : null,
                     coverUrl: imageUrl,
                     duration: track.duration || 0,
                     audioUrl: audioUrl,
+                    genres: track.genres || [],
+                    explicit: track.explicit || false,
+                    popularity: track.popularity || 0,
+                    featuring: track.featuring?.map(artist => ({
+                        id: artist._id,
+                        name: artist.name
+                    })) || []
                 };
+
+                console.log("Processed track:", JSON.stringify(processedTrack, null, 2));
+                return processedTrack;
             } catch (error) {
+                console.error("Error processing track:", error);
                 return null;
             }
         };
 
         const tracksWithUrls = await Promise.all(tracks.map(processTrack));
         const validTracks = tracksWithUrls.filter(track => track !== null);
+
+        console.log("Final tracks being sent:", JSON.stringify(validTracks, null, 2));
 
         const totalPages = Math.ceil(total / limit);
 
@@ -261,12 +288,35 @@ const findOne = async (req, res) => {
 // Créer une nouvelle piste
 const create = async (req, res) => {
     try {
+        // Vérifier si l'artiste existe
+        if (!req.body.artistId) {
+            return res.status(400).json({
+                success: false,
+                message: "L'ID de l'artiste est requis"
+            });
+        }
+
         const track = new Track(req.body);
         const newTrack = await track.save();
 
+        // Récupérer la piste avec toutes les relations peuplées
         const populatedTrack = await Track.findById(newTrack._id)
-            .populate("albumId", "title")
-            .populate("featuring", "name");
+            .populate({
+                path: "artistId",
+                select: "name image genres popularity"
+            })
+            .populate({
+                path: "albumId",
+                select: "title coverImage type releaseDate artistId",
+                populate: { 
+                    path: "artistId", 
+                    select: "name image genres popularity" 
+                }
+            })
+            .populate({
+                path: "featuring",
+                select: "name image genres popularity"
+            });
 
         await invalidateTrackCache();
 
@@ -286,12 +336,37 @@ const create = async (req, res) => {
 // Mettre à jour une piste
 const update = async (req, res) => {
     try {
+        // Vérifier si l'artiste existe si l'ID est fourni
+        if (req.body.artistId) {
+            const artist = await Artist.findById(req.body.artistId);
+            if (!artist) {
+                return res.status(400).json({
+                    success: false,
+                    message: "L'artiste spécifié n'existe pas"
+                });
+            }
+        }
+
         const track = await Track.findByIdAndUpdate(req.params.id, req.body, {
             new: true,
             runValidators: true,
         })
-            .populate("albumId", "title")
-            .populate("featuring", "name");
+        .populate({
+            path: "artistId",
+            select: "name image genres popularity"
+        })
+        .populate({
+            path: "albumId",
+            select: "title coverImage type releaseDate artistId",
+            populate: { 
+                path: "artistId", 
+                select: "name image genres popularity" 
+            }
+        })
+        .populate({
+            path: "featuring",
+            select: "name image genres popularity"
+        });
 
         if (!track) {
             return res.status(404).json({

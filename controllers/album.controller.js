@@ -1,6 +1,7 @@
 const Album = require("../models/album.model");
 const { formatPaginatedResponse } = require("../utils/pagination");
 const AWS = require("aws-sdk");
+const cacheService = require("../services/cache.service");
 
 // Configurer AWS S3
 const s3 = new AWS.S3({
@@ -12,6 +13,25 @@ const s3 = new AWS.S3({
 
 const DEFAULT_IMAGE =
     "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMyQTJBMkEiLz48cGF0aCBkPSJNOTAgODBIMTEwQzExNS41MjMgODAgMTIwIDg0LjQ3NzIgMTIwIDkwVjExMEMxMjAgMTE1LjUyMyAxMTUuNTIzIDEyMCAxMTAgMTIwSDkwQzg0LjQ3NzIgMTIwIDgwIDExNS41MjMgODAgMTEwVjkwQzgwIDg0LjQ3NzIgODQuNDc3MiA4MCA5MCA4MFoiIGZpbGw9IiM0MDQwNDAiLz48cGF0aCBkPSJNMTAwIDg1QzEwMi43NjEgODUgMTA1IDg3LjIzODYgMTA1IDkwQzEwNSA5Mi43NjE0IDEwMi43NjEgOTUgMTAwIDk1Qzk3LjIzODYgOTUgOTUgOTIuNzYxNCA5NSA5MEM5NSA4Ny4yMzg2IDk3LjIzODYgODUgMTAwIDg1WiIgZmlsbD0iIzU5NTk1OSIvPjwvc3ZnPg==";
+
+// Liste des clés de cache liées aux albums
+const ALBUM_CACHE_KEYS = [
+    "albums-list",
+    "albums-recent",
+    "album-search",
+    "album-detail",
+    "album-tracks",
+    "global-search"
+];
+
+// Fonction utilitaire pour invalider le cache des albums
+const invalidateAlbumCache = async () => {
+    try {
+        await cacheService.flush(); // On vide tout le cache pour être sûr
+    } catch (error) {
+        console.error("Erreur lors de l'invalidation du cache des albums:", error);
+    }
+};
 
 const getSignedUrl = async (imageUrl) => {
     if (!imageUrl) return null;
@@ -95,6 +115,8 @@ const findAll = async (req, res) => {
                         title: album.title || "Album Inconnu",
                         artist: album.artistId?.name || "Artiste inconnu",
                         coverUrl: imageUrl,
+                        trackCount: album.trackCount || 0,
+                        releaseDate: album.releaseDate,
                         year: album.releaseDate
                             ? new Date(album.releaseDate).getFullYear()
                             : null,
@@ -105,6 +127,8 @@ const findAll = async (req, res) => {
                         title: album.title || "Album Inconnu",
                         artist: album.artistId?.name || "Artiste inconnu",
                         coverUrl: DEFAULT_IMAGE,
+                        trackCount: album.trackCount || 0,
+                        releaseDate: album.releaseDate,
                         year: album.releaseDate
                             ? new Date(album.releaseDate).getFullYear()
                             : null,
@@ -139,6 +163,9 @@ const findAll = async (req, res) => {
 // Récupérer un album par ID
 const findOne = async (req, res) => {
     try {
+        const Track = require("../models/track.model");
+        
+        // Récupérer l'album
         const album = await Album.findById(req.params.id)
             .populate("artistId", "name")
             .populate("featuring", "name");
@@ -149,6 +176,11 @@ const findOne = async (req, res) => {
                 message: "Album non trouvé",
             });
         }
+
+        // Récupérer les pistes associées
+        const tracks = await Track.find({ albumId: req.params.id })
+            .populate("artistId", "name")
+            .populate("featuring", "name");
 
         // Generate signed URLs for all image sizes
         const signedCoverImage = {
@@ -163,10 +195,11 @@ const findOne = async (req, res) => {
                 : null,
         };
 
-        // Create a new object with signed URLs
+        // Create a new object with signed URLs and tracks
         const albumWithSignedUrls = {
             ...album.toObject(),
             coverImage: signedCoverImage,
+            tracks: tracks // Ajout des pistes
         };
 
         res.status(200).json({
@@ -191,6 +224,8 @@ const create = async (req, res) => {
         const populatedAlbum = await Album.findById(newAlbum._id)
             .populate("artistId", "name")
             .populate("featuring", "name");
+
+        await invalidateAlbumCache();
 
         res.status(201).json({
             success: true,
@@ -221,6 +256,9 @@ const update = async (req, res) => {
                 message: "Album non trouvé",
             });
         }
+
+        await invalidateAlbumCache();
+
         res.status(200).json({
             success: true,
             data: album,
@@ -244,6 +282,9 @@ const deleteAlbum = async (req, res) => {
                 message: "Album non trouvé",
             });
         }
+
+        await invalidateAlbumCache();
+
         res.status(200).json({
             success: true,
             message: "Album supprimé avec succès",
@@ -315,6 +356,8 @@ const getRecent = async (req, res) => {
                         title: album.title || "Album Inconnu",
                         artist: album.artistId?.name || "Artiste inconnu",
                         coverUrl: imageUrl,
+                        trackCount: album.trackCount || 0,
+                        releaseDate: album.releaseDate,
                         year: album.releaseDate
                             ? new Date(album.releaseDate).getFullYear()
                             : null,
@@ -325,6 +368,8 @@ const getRecent = async (req, res) => {
                         title: album.title || "Album Inconnu",
                         artist: album.artistId?.name || "Artiste inconnu",
                         coverUrl: DEFAULT_IMAGE,
+                        trackCount: album.trackCount || 0,
+                        releaseDate: album.releaseDate,
                         year: album.releaseDate
                             ? new Date(album.releaseDate).getFullYear()
                             : null,
@@ -413,6 +458,109 @@ const getAlbumTracks = async (req, res) => {
     }
 };
 
+// Récupérer les pistes disponibles d'un artiste pour un album
+const getAvailableTracksForAlbum = async (req, res) => {
+    try {
+        const { albumId } = req.params;
+        const album = await Album.findById(albumId).populate("artistId");
+        
+        if (!album) {
+            return res.status(404).json({
+                success: false,
+                message: "Album non trouvé",
+            });
+        }
+
+        const Track = require("../models/track.model");
+        
+        // Récupérer toutes les pistes de l'artiste
+        const artistTracks = await Track.find({
+            artistId: album.artistId._id
+        }).populate("artistId", "name")
+          .populate("featuring", "name");
+
+        // Générer les URLs signées pour les pistes
+        const tracksWithUrls = await Promise.all(
+            artistTracks.map(async (track) => {
+                const audioUrl = track.audioUrl ? await getSignedUrl(track.audioUrl) : null;
+                return {
+                    ...track.toObject(),
+                    audioUrl,
+                    isInAlbum: track.albumId && track.albumId.toString() === albumId
+                };
+            })
+        );
+
+        res.status(200).json({
+            success: true,
+            data: tracksWithUrls,
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Erreur lors de la récupération des pistes disponibles",
+            error: error.message,
+        });
+    }
+};
+
+// Mettre à jour les pistes d'un album
+const updateAlbumTracks = async (req, res) => {
+    try {
+        const { albumId } = req.params;
+        const { trackIds } = req.body;
+
+        const album = await Album.findById(albumId);
+        if (!album) {
+            return res.status(404).json({
+                success: false,
+                message: "Album non trouvé",
+            });
+        }
+
+        const Track = require("../models/track.model");
+
+        // Retirer l'albumId des pistes qui ne sont plus dans l'album
+        await Track.updateMany(
+            { 
+                albumId: albumId,
+                _id: { $nin: trackIds }
+            },
+            { 
+                $unset: { albumId: "" }
+            }
+        );
+
+        // Ajouter l'albumId aux nouvelles pistes
+        await Track.updateMany(
+            { 
+                _id: { $in: trackIds },
+                artistId: album.artistId // Sécurité supplémentaire
+            },
+            { 
+                albumId: albumId
+            }
+        );
+
+        // Mettre à jour le nombre de pistes
+        album.trackCount = trackIds.length;
+        await album.save();
+
+        await invalidateAlbumCache();
+
+        res.status(200).json({
+            success: true,
+            message: "Pistes de l'album mises à jour avec succès"
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Erreur lors de la mise à jour des pistes de l'album",
+            error: error.message,
+        });
+    }
+};
+
 module.exports = {
     findAll,
     findOne,
@@ -422,4 +570,6 @@ module.exports = {
     search,
     getRecent,
     getAlbumTracks,
+    getAvailableTracksForAlbum,
+    updateAlbumTracks
 };

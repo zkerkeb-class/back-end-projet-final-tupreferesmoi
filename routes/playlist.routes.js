@@ -267,4 +267,63 @@ router.post("/:id/tracks", auth, playlistController.addTrack);
  */
 router.delete("/:id/tracks/:trackId", auth, playlistController.removeTrack);
 
+/**
+ * @swagger
+ * /api/playlists/{id}/admin:
+ *   put:
+ *     summary: Mettre à jour une playlist (Admin seulement)
+ *     tags: [Playlists]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la playlist
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               tracks:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Playlist mise à jour
+ *       404:
+ *         description: Playlist non trouvée
+ */
+router.put("/:id/admin", auth, playlistController.updateAdmin);
+
+/**
+ * @swagger
+ * /api/playlists/{id}/admin:
+ *   delete:
+ *     summary: Supprimer une playlist (Admin seulement)
+ *     tags: [Playlists]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la playlist
+ *     responses:
+ *       200:
+ *         description: Playlist supprimée
+ *       404:
+ *         description: Playlist non trouvée
+ */
+router.delete("/:id/admin", auth, playlistController.deletePlaylistAdmin);
+
 module.exports = router;

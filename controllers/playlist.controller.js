@@ -334,6 +334,54 @@ const update = async (req, res) => {
     }
 };
 
+// Mettre à jour une playlist (Admin)
+const updateAdmin = async (req, res) => {
+    try {
+        const playlist = await Playlist.findById(req.params.id);
+
+        if (!playlist) {
+            return res.status(404).json({
+                success: false,
+                message: "Playlist non trouvée"
+            });
+        }
+
+        // Vérifier que la playlist est publique
+        if (!playlist.isPublic) {
+            return res.status(403).json({
+                success: false,
+                message: "Les administrateurs ne peuvent modifier que les playlists publiques"
+            });
+        }
+
+        const updatedPlaylist = await Playlist.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            { new: true, runValidators: true }
+        )
+            .populate("userId", "username")
+            .populate({
+                path: "tracks",
+                select: "title duration artistId",
+                populate: {
+                    path: "artistId",
+                    select: "name",
+                },
+            });
+
+        res.status(200).json({
+            success: true,
+            data: updatedPlaylist,
+        });
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            message: "Erreur lors de la mise à jour de la playlist",
+            error: error.message,
+        });
+    }
+};
+
 // Supprimer une playlist
 const deletePlaylist = async (req, res) => {
     try {
@@ -359,6 +407,41 @@ const deletePlaylist = async (req, res) => {
             success: false,
             message: "Erreur lors de la suppression de la playlist",
             error: error.message,
+        });
+    }
+};
+
+// Supprimer une playlist (Admin)
+const deletePlaylistAdmin = async (req, res) => {
+    try {
+        const playlist = await Playlist.findById(req.params.id);
+
+        if (!playlist) {
+            return res.status(404).json({
+                success: false,
+                message: "Playlist non trouvée"
+            });
+        }
+
+        // Vérifier que la playlist est publique
+        if (!playlist.isPublic) {
+            return res.status(403).json({
+                success: false,
+                message: "Les administrateurs ne peuvent supprimer que les playlists publiques"
+            });
+        }
+
+        await Playlist.findByIdAndDelete(req.params.id);
+
+        res.status(200).json({
+            success: true,
+            message: "Playlist supprimée avec succès"
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Erreur lors de la suppression de la playlist",
+            error: error.message
         });
     }
 };
@@ -517,7 +600,9 @@ module.exports = {
     findOne,
     create,
     update,
+    updateAdmin,
     deletePlaylist,
+    deletePlaylistAdmin,
     addTrack,
     removeTrack,
 };

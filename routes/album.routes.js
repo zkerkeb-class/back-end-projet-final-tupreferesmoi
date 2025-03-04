@@ -170,4 +170,17 @@ router.get(
     albumController.getAlbumTracks
 );
 
+// Routes pour la gestion des pistes d'un album
+router.get(
+    "/:albumId/available-tracks",
+    auth,
+    albumController.getAvailableTracksForAlbum
+);
+
+router.put(
+    "/:albumId/tracks",
+    auth,
+    albumController.updateAlbumTracks
+);
+
 module.exports = router;

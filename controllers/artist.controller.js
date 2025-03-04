@@ -2,6 +2,10 @@ const Artist = require("../models/artist.model");
 const { formatPaginatedResponse } = require("../utils/pagination");
 const AWS = require("aws-sdk");
 const Track = require("../models/track.model");
+const cacheService = require("../services/cache.service");
+
+const DEFAULT_IMAGE =
+    "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMyQTJBMkEiLz48cGF0aCBkPSJNOTAgODBIMTEwQzExNS41MjMgODAgMTIwIDg0LjQ3NzIgMTIwIDkwVjExMEMxMjAgMTE1LjUyMyAxMTUuNTIzIDEyMCAxMTAgMTIwSDkwQzg0LjQ3NzIgMTIwIDgwIDExNS41MjMgODAgMTEwVjkwQzgwIDg0LjQ3NzIgODQuNDc3MiA4MCA5MCA4MFoiIGZpbGw9IiM0MDQwNDAiLz48cGF0aCBkPSJNMTAwIDg1QzEwMi43NjEgODUgMTA1IDg3LjIzODYgMTA1IDkwQzEwNSA5Mi43NjE0IDEwMi43NjEgOTUgMTAwIDk1Qzk3LjIzODYgOTUgOTUgOTIuNzYxNCA5NSA5MEM5NSA4Ny4yMzg2IDk3LjIzODYgODUgMTAwIDg1WiIgZmlsbD0iIzU5NTk1OSIvPjwvc3ZnPg==";
 
 // Configuration AWS avec les credentials et la région
 const s3 = new AWS.S3({
@@ -10,6 +14,25 @@ const s3 = new AWS.S3({
     region: process.env.AWS_REGION,
     signatureVersion: "v4",
 });
+
+// Liste des clés de cache liées aux artistes
+const ARTIST_CACHE_KEYS = [
+    "artists-list",
+    "artists-popular",
+    "artist-search",
+    "artist-detail",
+    "artist-top-tracks",
+    "global-search"
+];
+
+// Fonction utilitaire pour invalider le cache des artistes
+const invalidateArtistCache = async () => {
+    try {
+        await cacheService.flush(); // On vide tout le cache pour être sûr
+    } catch (error) {
+        console.error("Erreur lors de l'invalidation du cache des artistes:", error);
+    }
+};
 
 const getSignedUrl = async (imageUrl) => {
     if (!imageUrl) return null;
@@ -173,6 +196,7 @@ const create = async (req, res) => {
     try {
         const artist = new Artist(req.body);
         const newArtist = await artist.save();
+        await invalidateArtistCache();
         res.status(201).json({
             success: true,
             data: newArtist,
@@ -199,6 +223,7 @@ const update = async (req, res) => {
                 message: "Artiste non trouvé",
             });
         }
+        await invalidateArtistCache();
         res.status(200).json({
             success: true,
             data: artist,
@@ -222,6 +247,7 @@ const deleteArtist = async (req, res) => {
                 message: "Artiste non trouvé",
             });
         }
+        await invalidateArtistCache();
         res.status(200).json({
             success: true,
             message: "Artiste supprimé avec succès",
@@ -239,24 +265,32 @@ const deleteArtist = async (req, res) => {
 const search = async (req, res) => {
     try {
         const { query } = req.query;
+        
+        if (!query || query.length < 2) {
+            return res.status(200).json({
+                success: true,
+                data: []
+            });
+        }
+
         const artists = await Artist.find({
-            $text: { $search: query },
-        });
+            name: { $regex: query, $options: 'i' }
+        })
+        .select('_id name')
+        .limit(10);
+
         res.status(200).json({
             success: true,
-            data: artists,
+            data: artists
         });
     } catch (error) {
         res.status(500).json({
             success: false,
             message: "Erreur lors de la recherche d'artistes",
-            error: error.message,
+            error: error.message
         });
     }
 };
-
-const DEFAULT_IMAGE =
-    "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMyQTJBMkEiLz48cGF0aCBkPSJNOTAgODBIMTEwQzExNS41MjMgODAgMTIwIDg0LjQ3NzIgMTIwIDkwVjExMEMxMjAgMTE1LjUyMyAxMTUuNTIzIDEyMCAxMTAgMTIwSDkwQzg0LjQ3NzIgMTIwIDgwIDExNS41MjMgODAgMTEwVjkwQzgwIDg0LjQ3NzIgODQuNDc3MiA4MCA5MCA4MFoiIGZpbGw9IiM0MDQwNDAiLz48cGF0aCBkPSJNMTAwIDg1QzEwMi43NjEgODUgMTA1IDg3LjIzODYgMTA1IDkwQzEwNSA5Mi43NjE0IDEwMi43NjEgOTUgMTAwIDk1Qzk3LjIzODYgOTUgOTUgOTIuNzYxNCA5NSA5MEM5NSA4Ny4yMzg2IDk3LjIzODYgODUgMTAwIDg1WiIgZmlsbD0iIzU5NTk1OSIvPjwvc3ZnPg==";
 
 const getPopular = async (req, res) => {
     try {

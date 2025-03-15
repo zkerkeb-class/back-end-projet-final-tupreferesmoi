@@ -118,7 +118,9 @@ router.post(
  *       401:
  *         description: Non authentifié
  */
-router.get("/profile", auth, userController.getProfile);
+router.get("/profile/:userId", auth, userController.getProfile);
+router.get("/", auth, userController.getAll);
+
 
 /**
  * @swagger
@@ -153,12 +155,10 @@ router.get("/profile", auth, userController.getProfile);
  *         description: Non authentifié
  */
 router.put(
-    "/profile",
+    "/profile/:userId", 
     auth,
-    validateRequest(updateProfileSchema),
-    userController.updateProfile
+     userController.updateProfile
 );
-
 // Routes protégées avec validation
 router.put(
     "/password",
@@ -167,6 +167,6 @@ router.put(
     userController.changePassword
 );
 router.put("/privacy", auth, userController.updatePrivacySettings);
-router.delete("/account", auth, userController.deleteAccount);
+router.delete("/delete/:userId", auth, userController.deleteAccount);
 
 module.exports = router;

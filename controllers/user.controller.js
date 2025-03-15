@@ -56,7 +56,7 @@ exports.login = async (req, res) => {
 // Récupérer le profil utilisateur
 exports.getProfile = async (req, res) => {
     try {
-        const user = await User.findById(req.user.userId);
+        const user = await User.findById(req.params.userId);
         if (!user) {
             return res.status(404).json({ message: "Utilisateur non trouvé" });
         }
@@ -72,7 +72,7 @@ exports.updateProfile = async (req, res) => {
         const updates = req.body;
         delete updates.password; // Empêcher la modification directe du mot de passe
 
-        const user = await User.findByIdAndUpdate(req.user.userId, updates, {
+        const user = await User.findByIdAndUpdate(req.params.userId, updates, {
             new: true,
             runValidators: true,
         });
@@ -130,11 +130,25 @@ exports.updatePrivacySettings = async (req, res) => {
 // Supprimer le compte utilisateur
 exports.deleteAccount = async (req, res) => {
     try {
-        const user = await User.findByIdAndDelete(req.user.userId);
+        const user = await User.findByIdAndDelete(req.params.userId);
         if (!user) {
             return res.status(404).json({ message: "Utilisateur non trouvé" });
         }
         res.status(200).json({ message: "Compte supprimé avec succès" });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+
+// Récupérer tout les  profils utilisateur
+exports.getAll = async (req, res) => {
+    try {
+        const users = await User.find({});
+        if (users.length == 0) {
+            return res.status(404).json({ message: "Utilisateurs non trouvé" });
+        }
+        res.status(200).json(users);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

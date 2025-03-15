@@ -35,7 +35,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ["user", "admin"],
+        enum: ["user", "admin","content-admin", "catalog-manager", "moderator"],
         default: "user",
     },
     privacySettings: {

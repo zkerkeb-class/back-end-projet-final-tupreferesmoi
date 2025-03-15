@@ -1,4 +1,3 @@
-const jwt = require("jsonwebtoken");
 const logger = require("../config/logger");
 
 const User = require("../models/user.model");
@@ -30,53 +29,56 @@ const UserAuthorizedRoles = { // Role autorisé pour les opérations sur les uti
     deleteUser : ["admin"]
 }
 
-const getUserRole = async (userId) =>{
-    const user = await User.findById(req.params.userId);
-
+const getUserRole = async (req) =>{
+    const user = await User.findById(req.headers.currentuserid);
+    //console.log(req.headers.currentuserid);
     return user.role;
 }
+
 const role = async (req, res, next) => {
 
-    try {
-
-        
+    try {        
         let unauthorizedMessage;
-        let userRole = userRole;
-        // Récupérer le token du header Authorization
+        let userRole = await getUserRole(req);
         let scope = req.headers.scope; //partie de l'application ciblé par l'action // Artist / ALbumes / Tracks... 
-        let method = req.headers.method
+        let method = req.method;
+        
+        console.log("role " + userRole);
+        if(userRole == "admin"){ // l'administrateur n'a pas de restriction (à ne pas confondre avec le "content-admin")
+            return next();
+        } 
 
         if(scope == "Artists"){
 
             if(method == "GET" ){
                 if(ArtistAuthorizedRoles.getArtists.includes(userRole)) {
-                    next();
+                    return next();
                 }else{
-                    unauthorizedMessage = `Seuls les rôles ${ArtistAuthorizedRoles.getArtists.join('; ')} sont autorisé éffectuer cet opération.`
+                    unauthorizedMessage = `Seul les rôles :  ${ArtistAuthorizedRoles.getArtists.join('; ')} - sont autorisé effectuer cet opération.`
                 }
             }
             
             if(method == "POST" ){
                 if(ArtistAuthorizedRoles.createArtist.includes(userRole)) {
-                    next();
+                    return next();
                 }else{
-                    unauthorizedMessage = `Seuls les rôles ${ArtistAuthorizedRoles.createArtist.join('; ')} sont autorisé éffectuer cet opération.`
+                    unauthorizedMessage = `Seul les rôles :  ${ArtistAuthorizedRoles.createArtist.join('; ')} - sont autorisé effectuer cet opération.`
                 }
             }
             
             if(method == "PUT" ){
                 if(ArtistAuthorizedRoles.editArtist.includes(userRole)) {
-                    next();
+                    return next();
                 }else{
-                    unauthorizedMessage = `Seuls les rôles ${ArtistAuthorizedRoles.editArtist.join('; ')} sont autorisé éffectuer cet opération.`
+                    unauthorizedMessage = `Seul les rôles :  ${ArtistAuthorizedRoles.editArtist.join('; ')} - sont autorisé effectuer cet opération.`
                 }
             }
             
             if(method == "DELETE" ){
                 if(ArtistAuthorizedRoles.deleteArtist.includes(userRole)) {
-                    next();
+                    return next();
                 }else{
-                    unauthorizedMessage = `Seuls les rôles ${ArtistAuthorizedRoles.deleteArtist.join('; ')} sont autorisé éffectuer cet opération.`
+                    unauthorizedMessage = `Seul les rôles :  ${ArtistAuthorizedRoles.deleteArtist.join('; ')} - sont autorisé effectuer cet opération.`
                 }
             }
             
@@ -87,33 +89,33 @@ const role = async (req, res, next) => {
 
             if(method == "GET" ){
                 if(AlbumsAuthorizedRoles.getAlbums.includes(userRole)) {
-                    next();
+                    return next();
                 }else{
-                    unauthorizedMessage = `Seuls les rôles ${AlbumsAuthorizedRoles.getAlbums.join('; ')} sont autorisé éffectué cet opération.`
+                    unauthorizedMessage = `Seul les rôles :  ${AlbumsAuthorizedRoles.getAlbums.join('; ')} - sont autorisé effectuer cet opération.`
                 }
             }
             
             if(method == "POST" ){
                 if(ArtistAuthorizedRoles.createAlbum.includes(userRole)) {
-                    next();
+                    return next();
                 }else{
-                    unauthorizedMessage = `Seuls les rôles ${AlbumsAuthorizedRoles.createAlbum.join('; ')} sont autorisé éffectué cet opération.`
+                    unauthorizedMessage = `Seul les rôles :  ${AlbumsAuthorizedRoles.createAlbum.join('; ')} - sont autorisé effectuer cet opération.`
                 }
             }
             
             if(method == "PUT" ){
                 if(AlbumsAuthorizedRoles.editAlbum.includes(userRole)) {
-                    next();
+                    return next();
                 }else{
-                    unauthorizedMessage = `Seuls les rôles ${AlbumsAuthorizedRoles.editAlbum.join('; ')} sont autorisé éffectué cet opération.`
+                    unauthorizedMessage = `Seul les rôles :  ${AlbumsAuthorizedRoles.editAlbum.join('; ')} - sont autorisé effectuer cet opération.`
                 }
             }
             
             if(method == "DELETE" ){
                 if(AlbumsAuthorizedRoles.deleteAlbum.includes(userRole)) {
-                    next();
+                    return next();
                 }else{
-                    unauthorizedMessage = `Seuls les rôles ${AlbumsAuthorizedRoles.deleteAlbum.join('; ')} sont autorisé éffectué cet opération.`
+                    unauthorizedMessage = `Seul les rôles :  ${AlbumsAuthorizedRoles.deleteAlbum.join('; ')} - sont autorisé effectuer cet opération.`
                 }
             }
         }
@@ -122,33 +124,33 @@ const role = async (req, res, next) => {
 
             if(method == "GET" ){
                 if(TracksAuthorizedRoles.getTracks.includes(userRole)) {
-                    next();
+                    return next();
                 }else{
-                    unauthorizedMessage = `Seuls les rôles ${TracksAuthorizedRoles.getTracks.join('; ')} sont autorisé éffectuer cet opération.`
+                    unauthorizedMessage = `Seul les rôles : ${TracksAuthorizedRoles.getTracks.join('; ')} - sont autorisé effectuer cet opération.`
                 }
             }
             
             if(method == "POST" ){
                 if(ArtistAuthorizedRoles.createTrack.includes(userRole)) {
-                    next();
+                    return next();
                 }else{
-                    unauthorizedMessage = `Seuls les rôles ${TracksAuthorizedRoles.createTrack.join('; ')} sont autorisé éffectuer cet opération.`
+                    unauthorizedMessage = `Seul les rôles :  ${TracksAuthorizedRoles.createTrack.join('; ')} - sont autorisé effectuer cet opération.`
                 }
             }
             
             if(method == "PUT" ){
                 if(TracksAuthorizedRoles.editAlbum.includes(userRole)) {
-                    next();
+                    return next();
                 }else{
-                    unauthorizedMessage = `Seuls les rôles ${TracksAuthorizedRoles.editAlbum.join('; ')} sont autorisé éffectuer cet opération.`
+                    unauthorizedMessage = `Seul les rôles : ${TracksAuthorizedRoles.editAlbum.join('; ')} - sont autorisé effectuer cet opération.`
                 }
             }
             
             if(method == "DELETE" ){
                 if(TracksAuthorizedRoles.deleteTrack.includes(userRole)) {
-                    next();
+                    return next();
                 }else{
-                    unauthorizedMessage = `Seuls les rôles ${TracksAuthorizedRoles.deleteTrack.join('; ')} sont autorisé éffectuer cet opération.`
+                    unauthorizedMessage = `Seul les rôles : ${TracksAuthorizedRoles.deleteTrack.join('; ')} - sont autorisé effectuer cet opération.`
                 }
             }
         }
@@ -157,25 +159,25 @@ const role = async (req, res, next) => {
 
             if(method == "GET" ){
                 if(UserAuthorizedRoles.getUsers.includes(userRole)) {
-                    next();
+                    return next();
                 }else{
-                    unauthorizedMessage = `Seuls les rôles ${UserAuthorizedRoles.getUsers.join('; ')} sont autorisé éffectuer cet opération.`
+                    unauthorizedMessage = `Seul les rôles : ${UserAuthorizedRoles.getUsers.join('; ')} - sont autorisé effectuer cet opération.`
                 }
             }        
             
             if(method == "PUT" ){
                 if(UserAuthorizedRoles.editUser.includes(userRole)) {
-                    next();
+                    return next();
                 }else{
-                    unauthorizedMessage = `Seuls les rôles ${UserAuthorizedRoles.editUser.join('; ')} sont autorisé éffectuer cet opération.`
+                    unauthorizedMessage = `Seul les rôles : ${UserAuthorizedRoles.editUser.join('; ')} - sont autorisé effectuer cet opération.`
                 }
             }
             
             if(method == "DELETE" ){
                 if(UserAuthorizedRoles.deleteUser.includes(userRole)) {
-                    next();
+                    return next();
                 }else{
-                    unauthorizedMessage = `Seuls les rôles ${UserAuthorizedRoles.deleteUser.join('; ')} sont autorisé éffectuer cet opération.`
+                    unauthorizedMessage = `Seul les rôles : ${UserAuthorizedRoles.deleteUser.join('; ')} - sont autorisé effectuer cet opération.`
                 }
             }
         }

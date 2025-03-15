@@ -114,7 +114,7 @@ const findAll = async (req, res) => {
             Track.countDocuments(query),
         ]);
 
-        console.log("Tracks après populate:", JSON.stringify(tracks, null, 2));
+        //console.log("Tracks après populate:", JSON.stringify(tracks, null, 2));
 
         const processTrack = async (track) => {
             try {

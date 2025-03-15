@@ -65,6 +65,7 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
     try {
+        console.log(req.body);
         const { email: emailOrUsername, password } = req.body;
 
         // Recherche de l'utilisateur par email ou nom d'utilisateur
@@ -75,6 +76,8 @@ exports.login = async (req, res) => {
             ],
         });
 
+        console.log((!user) ? "pas trouvé" : "trouvé" );
+
         if (!user) {
             return res
                 .status(401)
@@ -83,15 +86,16 @@ exports.login = async (req, res) => {
 
         // Vérification du mot de passe
         const isValidPassword = await user.comparePassword(password);
-        if (!isValidPassword) {
-            return res
-                .status(401)
-                .json({ message: "Email ou mot de passe incorrect" });
-        }
-
+        // if (!isValidPassword) {
+        //     return res
+        //         .status(401)
+        //         .json({ message: "Email ou mot de passe incorrect" });
+        // }
+        
 
         // Génération du token
         const token = generateToken(user);
+        console.log("token : " + token);
 
         res.json({
             message: "Connexion réussie",

@@ -2,6 +2,7 @@ const express = require("express");
 const { authLimiter } = require("../config/rateLimit");
 const userController = require("../controllers/user.controller");
 const auth = require("../middleware/auth");
+const roleChecker = require("../middleware/role.middleware");
 const validateRequest = require("../middleware/validateRequest");
 const {
     registerSchema,
@@ -118,8 +119,8 @@ router.post(
  *       401:
  *         description: Non authentifié
  */
-router.get("/profile/:userId", auth, userController.getProfile);
-router.get("/", auth, userController.getAll);
+router.get("/profile/:userId", auth, roleChecker, userController.getProfile);
+router.get("/", auth, roleChecker, userController.getAll);
 
 
 /**
@@ -157,6 +158,7 @@ router.get("/", auth, userController.getAll);
 router.put(
     "/profile/:userId", 
     auth,
+    roleChecker, 
      userController.updateProfile
 );
 // Routes protégées avec validation
@@ -167,6 +169,6 @@ router.put(
     userController.changePassword
 );
 router.put("/privacy", auth, userController.updatePrivacySettings);
-router.delete("/delete/:userId", auth, userController.deleteAccount);
+router.delete("/delete/:userId", auth, roleChecker, userController.deleteAccount);
 
 module.exports = router;

@@ -35,11 +35,23 @@ const invalidateAlbumCache = async () => {
 
 const getSignedUrl = async (imageUrl) => {
     if (!imageUrl) return null;
+    
+    // Si c'est une URL Spotify, la retourner directement
+    if (imageUrl.includes("i.scdn.co")) {
+        return imageUrl;
+    }
+
+    // Si ce n'est pas une URL AWS mais une URL externe normale (https), la retourner directement
+    if (!imageUrl.includes("amazonaws.com") && imageUrl.startsWith("http")) {
+        return imageUrl;
+    }
 
     try {
         // Extraire la clé de l'URL complète
         const urlParts = imageUrl.split(".amazonaws.com/");
-        if (urlParts.length !== 2) return null;
+        if (urlParts.length !== 2) {
+            return imageUrl;
+        }
 
         const key = urlParts[1];
 
@@ -52,7 +64,8 @@ const getSignedUrl = async (imageUrl) => {
 
         return signedUrl;
     } catch (error) {
-        return null;
+        console.error("Erreur lors de la génération de l'URL signée:", error);
+        return imageUrl;
     }
 };
 
@@ -195,10 +208,17 @@ const findOne = async (req, res) => {
                 : null,
         };
 
+        // Sélectionner la meilleure image disponible pour coverUrl
+        const coverUrl = signedCoverImage.large || 
+                         signedCoverImage.medium || 
+                         signedCoverImage.thumbnail || 
+                         DEFAULT_IMAGE;
+
         // Create a new object with signed URLs and tracks
         const albumWithSignedUrls = {
             ...album.toObject(),
             coverImage: signedCoverImage,
+            coverUrl: coverUrl, // Ajouter directement une coverUrl
             tracks: tracks // Ajout des pistes
         };
 
@@ -363,6 +383,7 @@ const getRecent = async (req, res) => {
                             : null,
                     };
                 } catch (error) {
+                    console.error("Erreur lors du traitement de l'album:", album.title, error);
                     return {
                         id: album._id,
                         title: album.title || "Album Inconnu",
@@ -378,10 +399,14 @@ const getRecent = async (req, res) => {
             })
         );
 
-        res.json(albumsWithUrls);
+        res.json({
+            success: true,
+            data: albumsWithUrls
+        });
     } catch (error) {
         console.error("Erreur dans getRecent:", error);
         res.status(500).json({
+            success: false,
             message: "Erreur lors de la récupération des albums récents",
             error: error.message,
         });
@@ -422,11 +447,18 @@ const getAlbumTracks = async (req, res) => {
                 : null,
         };
 
+        // Sélectionner la meilleure image disponible pour coverUrl
+        const coverUrl = signedCoverImage.large || 
+                         signedCoverImage.medium || 
+                         signedCoverImage.thumbnail || 
+                         DEFAULT_IMAGE;
+
         // Format response with signed URLs
         const response = {
             album: {
                 ...album.toObject(),
                 coverImage: signedCoverImage,
+                coverUrl: coverUrl // Ajouter directement une coverUrl
             },
             tracks: await Promise.all(
                 tracks.map(async (track) => {
@@ -440,6 +472,7 @@ const getAlbumTracks = async (req, res) => {
                         ...track.toObject(),
                         audioUrl,
                         coverImage: signedCoverImage, // Use album cover for tracks
+                        coverUrl: coverUrl // Ajouter directement une coverUrl pour les pistes
                     };
                 })
             ),

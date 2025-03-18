@@ -37,10 +37,15 @@ const invalidateArtistCache = async () => {
 const getSignedUrl = async (imageUrl) => {
     if (!imageUrl) return null;
 
+    // Si ce n'est pas une URL AWS mais une URL externe normale (https), la retourner directement
+    if (!imageUrl.includes("amazonaws.com") && imageUrl.startsWith("http")) {
+        return imageUrl;
+    }
+
     try {
-        // Extraire la clé de l'URL complète
+        // C'est une URL AWS, on la signe
         const urlParts = imageUrl.split(".amazonaws.com/");
-        if (urlParts.length !== 2) return null;
+        if (urlParts.length !== 2) return imageUrl;
 
         const key = urlParts[1];
 
@@ -54,7 +59,7 @@ const getSignedUrl = async (imageUrl) => {
         return signedUrl;
     } catch (error) {
         console.error("Erreur lors de la génération de l'URL signée:", error);
-        return null;
+        return imageUrl; // En cas d'erreur, retourner l'URL originale
     }
 };
 
@@ -93,16 +98,18 @@ const findAll = async (req, res) => {
                 try {
                     let imageUrl = DEFAULT_IMAGE;
 
-                    // Si l'artiste a des images configurées, essayer de générer une URL signée
+                    // Si l'artiste a des images configurées, utiliser l'image appropriée
                     if (artist.image) {
                         const selectedImage =
                             artist.image.medium ||
                             artist.image.large ||
                             artist.image.thumbnail;
+                        
                         if (selectedImage) {
-                            const signedUrl = await getSignedUrl(selectedImage);
-                            if (signedUrl) {
-                                imageUrl = signedUrl;
+                            // Utiliser getSignedUrl qui gère maintenant les deux types d'URLs
+                            const processedUrl = await getSignedUrl(selectedImage);
+                            if (processedUrl) {
+                                imageUrl = processedUrl;
                             }
                         }
                     }
@@ -299,7 +306,10 @@ const getPopular = async (req, res) => {
             .limit(10);
 
         if (popularArtists.length === 0) {
-            return res.json([]);
+            return res.json({
+                success: true,
+                data: []
+            });
         }
 
         const artistsWithUrls = await Promise.all(
@@ -307,16 +317,18 @@ const getPopular = async (req, res) => {
                 try {
                     let imageUrl = DEFAULT_IMAGE;
 
-                    // Si l'artiste a des images configurées, essayer de générer une URL signée
+                    // Si l'artiste a des images configurées, utiliser l'image appropriée
                     if (artist.image) {
                         const selectedImage =
                             artist.image.medium ||
                             artist.image.large ||
                             artist.image.thumbnail;
+                        
                         if (selectedImage) {
-                            const signedUrl = await getSignedUrl(selectedImage);
-                            if (signedUrl) {
-                                imageUrl = signedUrl;
+                            // Utiliser getSignedUrl qui gère maintenant les deux types d'URLs
+                            const processedUrl = await getSignedUrl(selectedImage);
+                            if (processedUrl) {
+                                imageUrl = processedUrl;
                             }
                         }
                     }
@@ -343,10 +355,14 @@ const getPopular = async (req, res) => {
             })
         );
 
-        res.json(artistsWithUrls);
+        res.json({
+            success: true,
+            data: artistsWithUrls
+        });
     } catch (error) {
         console.error("Erreur dans getPopular:", error);
         res.status(500).json({
+            success: false,
             message: "Erreur lors de la récupération des artistes populaires",
             error: error.message,
         });
@@ -373,23 +389,25 @@ const getTopTracks = async (req, res) => {
             .populate("albumId")
             .lean();
 
-        // Enrichir les données des titres avec les URLs signées
+        // Enrichir les données des titres avec les URLs traitées
         const enrichedTracks = await Promise.all(topTracks.map(async (track) => {
             let coverUrl = null;
             let audioUrl = null;
 
-            // Générer URL signée pour la couverture de l'album
+            // Traiter l'URL de la couverture de l'album
             if (track.albumId?.coverImage) {
                 const selectedImage = 
                     track.albumId.coverImage.medium ||
                     track.albumId.coverImage.large ||
                     track.albumId.coverImage.thumbnail;
+                
                 if (selectedImage) {
+                    // getSignedUrl gère à la fois les URLs AWS et externes
                     coverUrl = await getSignedUrl(selectedImage);
                 }
             }
 
-            // Générer URL signée pour l'audio
+            // Traiter l'URL audio
             if (track.audioUrl) {
                 audioUrl = await getSignedUrl(track.audioUrl);
             }
@@ -414,7 +432,8 @@ const getTopTracks = async (req, res) => {
         console.error("Erreur lors de la récupération des top tracks:", error);
         res.status(500).json({
             success: false,
-            message: "Erreur lors de la récupération des top tracks",
+            message: "Erreur lors de la récupération des titres populaires",
+            error: error.message
         });
     }
 };
